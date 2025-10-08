@@ -21,15 +21,11 @@ namespace BingeBox.Controllers
             _imageBase = (opts.Value.ImageBase ?? "https://image.tmdb.org/t/p").TrimEnd('/');
         }
 
-        // =============================
-        // POPULAR
-        // =============================
         // GET /api/tmdb/popular?page=1
         [HttpGet("popular")]
         public async Task<IActionResult> GetPopular(int page = 1)
         {
             var result = await _tmdb.GetPopularAsync(page);
-
             var movies = result.results.Select(m => new TmdbMovieDto
             {
                 Id = m.id,
@@ -39,13 +35,9 @@ namespace BingeBox.Controllers
                 PosterUrl = string.IsNullOrEmpty(m.poster_path) ? null : $"{_imageBase}/w500{m.poster_path}",
                 ReleaseDate = m.release_date
             });
-
             return Ok(movies);
         }
 
-        // =============================
-        // GENERIC SEARCH (IMDb-style dropdown)
-        // =============================
         // GET /api/tmdb/search/{category}?query=matrix&page=1
         [HttpGet("search/{category}")]
         public async Task<IActionResult> SearchByCategory(string category, [FromQuery] string query, int page = 1)
@@ -79,48 +71,48 @@ namespace BingeBox.Controllers
                     result = await _tmdb.SearchKeywordAsync(query, page);
                     break;
                 default:
-                    // "all" or anything else = multi search
                     result = await _tmdb.SearchMultiAsync(query, page);
                     break;
             }
 
-            // Mappa resultatet till ett gemensamt DTO-format
-            var items = result.results.Select(m => new TmdbMovieDto
+            var items = result.results.Select(m =>
             {
-                Id = m.id,
-                Title = m.title ?? m.name, // vissa (t.ex. TV/person) har 'name' istället för 'title'
-                Overview = m.overview,
-                Rating = m.vote_average,
-                PosterUrl = string.IsNullOrEmpty(m.poster_path) ? null : $"{_imageBase}/w500{m.poster_path}",
-                ReleaseDate = m.release_date ?? m.first_air_date
+                // PERSON
+                if (cat == "person" || cat == "celebs")
+                {
+                    var knownForList = m.known_for?.Select(k => k.title ?? k.name)?.ToList() ?? new();
+                    var overview = knownForList.Count > 0
+                        ? $"Known for: {string.Join(", ", knownForList)}"
+                        : "No works listed.";
+
+                    return new TmdbMovieDto
+                    {
+                        Id = m.id,
+                        Title = m.name ?? "(Unknown Person)",
+                        Overview = overview,
+                        Rating = m.vote_average,
+                        PosterUrl = string.IsNullOrEmpty(m.profile_path) ? null : $"{_imageBase}/w500{m.profile_path}",
+                        ReleaseDate = null
+                    };
+                }
+
+                // FILMER / TV / ANNAT
+                return new TmdbMovieDto
+                {
+                    Id = m.id,
+                    Title = m.title ?? m.name,
+                    Overview = m.overview,
+                    Rating = m.vote_average,
+                    PosterUrl = !string.IsNullOrEmpty(m.poster_path)
+                        ? $"{_imageBase}/w500{m.poster_path}"
+                        : !string.IsNullOrEmpty(m.profile_path)
+                            ? $"{_imageBase}/w500{m.profile_path}"
+                            : null,
+                    ReleaseDate = m.release_date ?? m.first_air_date
+                };
             });
 
             return Ok(items);
-        }
-
-        // =============================
-        // (Optional) Original endpoint /search/movie för kompatibilitet
-        // =============================
-        // GET /api/tmdb/search/movie?query=matrix&page=1
-        [HttpGet("search/movie")]
-        public async Task<IActionResult> SearchMovie([FromQuery] string query, int page = 1)
-        {
-            if (string.IsNullOrWhiteSpace(query))
-                return BadRequest("Query is required.");
-
-            var result = await _tmdb.SearchMoviesAsync(query, page);
-
-            var movies = result.results.Select(m => new TmdbMovieDto
-            {
-                Id = m.id,
-                Title = m.title,
-                Overview = m.overview,
-                Rating = m.vote_average,
-                PosterUrl = string.IsNullOrEmpty(m.poster_path) ? null : $"{_imageBase}/w500{m.poster_path}",
-                ReleaseDate = m.release_date
-            });
-
-            return Ok(movies);
         }
     }
 }
