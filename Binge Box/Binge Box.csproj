@@ -1,10 +1,11 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Binge_Box</RootNamespace>
+    <UserSecretsId>f7dfeccc-0950-47b5-b8dd-b52346998359</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
