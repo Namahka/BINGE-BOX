@@ -1,5 +1,6 @@
-﻿using BingeBox.Data;              // Din DbContext
-using BingeBox.Options;           // För TmdbOptions
+﻿using BingeBox.Data;               // Din DbContext
+using BingeBox.Options;            // För TmdbOptions
+using BingeBox.External.Tmdb;      // För ITmdbClient/TmdbClient
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options; // För IOptions<T>
 
@@ -43,6 +44,9 @@ builder.Services.AddHttpClient("tmdb", (sp, http) =>
     http.BaseAddress = new Uri(opts.BaseUrl.TrimEnd('/') + "/");
     http.Timeout = TimeSpan.FromSeconds(15);
 });
+
+// Registrera TMDb-klienten
+builder.Services.AddScoped<ITmdbClient, TmdbClient>();
 
 // -------------------------------
 // APP PIPELINE
