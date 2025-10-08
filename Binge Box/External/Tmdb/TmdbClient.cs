@@ -22,21 +22,65 @@ namespace BingeBox.External.Tmdb
             _opts = opts.Value ?? throw new ArgumentNullException(nameof(opts));
         }
 
-        public async Task<TmdbSearchResult> GetPopularAsync(int page = 1, CancellationToken ct = default)
+        private async Task<TmdbSearchResult> GetAsync(string endpoint, CancellationToken ct = default)
         {
-            // /movie/popular
-            var url = $"movie/popular?api_key={_opts.ApiKey}&language=en-US&page={page}";
-            var result = await _http.GetFromJsonAsync<TmdbSearchResult>(url, ct);
+            var result = await _http.GetFromJsonAsync<TmdbSearchResult>(endpoint, ct);
             return result ?? new TmdbSearchResult();
         }
 
+        // =============================
+        // POPULAR MOVIES
+        // =============================
+        public async Task<TmdbSearchResult> GetPopularAsync(int page = 1, CancellationToken ct = default)
+        {
+            var url = $"movie/popular?api_key={_opts.ApiKey}&language=en-US&page={page}";
+            return await GetAsync(url, ct);
+        }
+
+        // =============================
+        // SEARCH ENDPOINTS
+        // =============================
+
         public async Task<TmdbSearchResult> SearchMoviesAsync(string query, int page = 1, CancellationToken ct = default)
         {
-            // /search/movie
             var q = Uri.EscapeDataString(query ?? string.Empty);
             var url = $"search/movie?api_key={_opts.ApiKey}&language=en-US&query={q}&page={page}&include_adult=false";
-            var result = await _http.GetFromJsonAsync<TmdbSearchResult>(url, ct);
-            return result ?? new TmdbSearchResult();
+            return await GetAsync(url, ct);
+        }
+
+        public async Task<TmdbSearchResult> SearchTvAsync(string query, int page = 1, CancellationToken ct = default)
+        {
+            var q = Uri.EscapeDataString(query ?? string.Empty);
+            var url = $"search/tv?api_key={_opts.ApiKey}&language=en-US&query={q}&page={page}&include_adult=false";
+            return await GetAsync(url, ct);
+        }
+
+        public async Task<TmdbSearchResult> SearchPersonAsync(string query, int page = 1, CancellationToken ct = default)
+        {
+            var q = Uri.EscapeDataString(query ?? string.Empty);
+            var url = $"search/person?api_key={_opts.ApiKey}&language=en-US&query={q}&page={page}";
+            return await GetAsync(url, ct);
+        }
+
+        public async Task<TmdbSearchResult> SearchCompanyAsync(string query, int page = 1, CancellationToken ct = default)
+        {
+            var q = Uri.EscapeDataString(query ?? string.Empty);
+            var url = $"search/company?api_key={_opts.ApiKey}&query={q}&page={page}";
+            return await GetAsync(url, ct);
+        }
+
+        public async Task<TmdbSearchResult> SearchKeywordAsync(string query, int page = 1, CancellationToken ct = default)
+        {
+            var q = Uri.EscapeDataString(query ?? string.Empty);
+            var url = $"search/keyword?api_key={_opts.ApiKey}&query={q}&page={page}";
+            return await GetAsync(url, ct);
+        }
+
+        public async Task<TmdbSearchResult> SearchMultiAsync(string query, int page = 1, CancellationToken ct = default)
+        {
+            var q = Uri.EscapeDataString(query ?? string.Empty);
+            var url = $"search/multi?api_key={_opts.ApiKey}&language=en-US&query={q}&page={page}&include_adult=false";
+            return await GetAsync(url, ct);
         }
     }
 }

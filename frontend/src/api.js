@@ -13,10 +13,11 @@ export async function getPopularMovies(page = 1) {
 }
 
 // --- Sök filmer ---
-export async function searchMovies(query, page = 1) {
+
+export async function searchMovies(query, category = "all", page = 1) {
   try {
     const res = await fetch(
-      `${API_BASE}/search/movie?query=${encodeURIComponent(query)}&page=${page}`
+      `https://localhost:7299/api/tmdb/search/${category}?query=${encodeURIComponent(query)}&page=${page}`
     );
     if (!res.ok) throw new Error("Kunde inte hämta sökresultat");
     return await res.json();
