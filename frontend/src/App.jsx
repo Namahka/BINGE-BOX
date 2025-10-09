@@ -1,11 +1,23 @@
 // src/App.jsx
 import { useState, useEffect } from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  useNavigate,
+} from "react-router-dom";
 import { getPopularMovies, searchMovies } from "./api";
 import SearchBar from "./components/SearchBar";
 import MovieCard from "./components/MovieCard";
 import "./index.css";
+import PersonDetails from "./pages/PersonDetails";
+import MovieDetails from "./pages/MovieDetails"; 
 
-export default function App() {
+
+// ===============================
+// 🧩 Huvudsida (Popular + Sökning)
+// ===============================
+function HomePage() {
   const [movies, setMovies] = useState([]);
   const [mode, setMode] = useState("popular");
   const [query, setQuery] = useState("");
@@ -54,10 +66,12 @@ export default function App() {
     }
   };
 
+  const navigate = useNavigate();
+
   return (
     <main className="min-h-screen bg-slate-900 text-white px-4 py-8">
       <h1 className="text-5xl font-bold text-yellow-400 mb-6 text-center">
-      BINGE BOX
+        BINGE BOX
       </h1>
 
       <SearchBar onSearch={handleSearch} />
@@ -66,7 +80,9 @@ export default function App() {
         <>
           <p className="mt-6 text-center text-gray-300">
             Showing results for{" "}
-            <span className="text-yellow-400">{formatCategoryName(category)}</span>{" "}
+            <span className="text-yellow-400">
+              {formatCategoryName(category)}
+            </span>{" "}
             matching <em className="text-yellow-300">"{query}"</em>
           </p>
           <button
@@ -84,10 +100,38 @@ export default function App() {
             No results.
           </p>
         )}
+
         {movies.map((m) => (
-          <MovieCard key={m.id} movie={m} />
+          <div
+            key={m.id}
+            onClick={() =>
+              navigate(
+                m.overview?.startsWith("Known for:")
+                  ? `/person/${m.id}`
+                  : `/movie/${m.id}`
+              )
+            }
+            className="cursor-pointer hover:scale-105 transition-transform duration-200"
+          >
+            <MovieCard movie={m} />
+          </div>
         ))}
       </div>
     </main>
+  );
+}
+
+// ===============================
+// 🚀 App med Router
+// ===============================
+export default function App() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/movie/:id" element={<MovieDetails />} /> {/* 🎬 trailer + detaljer */}
+        <Route path="/person/:id" element={<PersonDetails />} /> {/* 👤 skådespelarsida */}
+      </Routes>
+    </Router>
   );
 }

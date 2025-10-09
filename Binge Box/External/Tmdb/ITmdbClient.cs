@@ -1,5 +1,6 @@
 ﻿using System.Threading;
 using System.Threading.Tasks;
+using System.Text.Json;
 
 namespace BingeBox.External.Tmdb
 {
@@ -12,5 +13,11 @@ namespace BingeBox.External.Tmdb
         Task<TmdbSearchResult> SearchCompanyAsync(string query, int page = 1, CancellationToken ct = default);
         Task<TmdbSearchResult> SearchKeywordAsync(string query, int page = 1, CancellationToken ct = default);
         Task<TmdbSearchResult> SearchMultiAsync(string query, int page = 1, CancellationToken ct = default);
+
+        // 🎬 Film-detaljer (med trailer + credits)
+        Task<JsonDocument?> GetMovieDetailsAsync(int id, CancellationToken ct = default);
+
+        // 📺 TV-detaljer (för serier)
+        Task<JsonDocument?> GetTvDetailsAsync(int id, CancellationToken ct = default);
     }
 }

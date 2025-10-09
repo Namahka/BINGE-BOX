@@ -1,24 +1,38 @@
+// src/components/Navbar.jsx
+import { useNavigate } from "react-router-dom";
+import SearchBar from "./SearchBar";
+import { useSearch } from "../context/SearchContext";
+
 export default function Navbar() {
+  const { handleSearch } = useSearch();
+  const navigate = useNavigate();
+
+  const handleNavbarSearch = (q, cat) => {
+    handleSearch(q, cat);
+    navigate("/"); // skickar användaren till startsidan
+  };
+
   return (
     <header className="sticky top-0 z-50 bg-slate-950/80 backdrop-blur border-b border-slate-800">
       <div className="mx-auto max-w-6xl px-4 h-14 flex items-center justify-between">
-        {/* Left: Logo */}
-        <a href="/" className="text-xl font-bold tracking-tight">
-          <span className="text-indigo-400">Binge</span> Box
+        {/* 🟡 Left: Logo */}
+        <a
+          href="/"
+          className="text-xl font-bold tracking-tight text-yellow-400 hover:text-yellow-300 transition"
+        >
+          BINGE BOX
         </a>
 
-        {/* Center: Nav links (kan kopplas senare) */}
-        <nav className="hidden md:flex gap-6 text-sm text-slate-300">
-          <a className="hover:text-white" href="#">Start</a>
-          <a className="hover:text-white" href="#">Library</a>
-          <a className="hover:text-white" href="#">Toplist</a>
-          <a className="hover:text-white" href="#">Search</a>
-        </nav>
+        {/* 🔍 Right: Search + Sign in */}
+        <div className="flex items-center gap-4">
+          <div className="hidden sm:block w-56">
+            <SearchBar compact onSearch={handleNavbarSearch} />
+          </div>
 
-        {/* Right: Auth-knapp (placeholder) */}
-        <button className="text-sm px-3 py-1.5 rounded-md border border-slate-700 hover:bg-slate-800">
-          Sign in
-        </button>
+          <button className="text-sm px-3 py-1.5 rounded-md border border-slate-700 hover:bg-slate-800 text-slate-200">
+            Sign in
+          </button>
+        </div>
       </div>
     </header>
   );

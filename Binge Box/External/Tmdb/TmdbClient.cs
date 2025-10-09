@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using BingeBox.Options;
 using Microsoft.Extensions.Options;
+using System.Text.Json;
 
 namespace BingeBox.External.Tmdb
 {
@@ -19,6 +20,9 @@ namespace BingeBox.External.Tmdb
             _opts = opts.Value ?? throw new ArgumentNullException(nameof(opts));
         }
 
+        // --------------------------------------------------------
+        // 🔍 Gemensam GET-metod för sökningar och listor
+        // --------------------------------------------------------
         private async Task<TmdbSearchResult> GetAsync(string endpoint, int page, string query = "", CancellationToken ct = default)
         {
             var q = Uri.EscapeDataString(query ?? string.Empty);
@@ -31,6 +35,9 @@ namespace BingeBox.External.Tmdb
             return result ?? new TmdbSearchResult();
         }
 
+        // --------------------------------------------------------
+        // 🎞 POPULÄRA / SÖK / MULTI
+        // --------------------------------------------------------
         public Task<TmdbSearchResult> GetPopularAsync(int page = 1, CancellationToken ct = default)
             => GetAsync("movie/popular", page, "", ct);
 
@@ -51,5 +58,49 @@ namespace BingeBox.External.Tmdb
 
         public Task<TmdbSearchResult> SearchMultiAsync(string query, int page = 1, CancellationToken ct = default)
             => GetAsync("search/multi", page, query, ct);
+
+        // --------------------------------------------------------
+        // 🎬 Film-detaljer (inkluderar trailers & credits)
+        // --------------------------------------------------------
+        public async Task<JsonDocument?> GetMovieDetailsAsync(int id, CancellationToken ct = default)
+        {
+            var url = $"movie/{id}?api_key={_opts.ApiKey}&language=en-US&append_to_response=videos,credits";
+
+            try
+            {
+                var response = await _http.GetAsync(url, ct);
+                response.EnsureSuccessStatusCode();
+
+                var stream = await response.Content.ReadAsStreamAsync(ct);
+                return await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Fel vid hämtning av film: {ex.Message}");
+                return null;
+            }
+        }
+
+        // --------------------------------------------------------
+        // 📺 TV-detaljer (för serier, samma struktur som filmer)
+        // --------------------------------------------------------
+        public async Task<JsonDocument?> GetTvDetailsAsync(int id, CancellationToken ct = default)
+        {
+            var url = $"tv/{id}?api_key={_opts.ApiKey}&language=en-US&append_to_response=videos,credits";
+
+            try
+            {
+                var response = await _http.GetAsync(url, ct);
+                response.EnsureSuccessStatusCode();
+
+                var stream = await response.Content.ReadAsStreamAsync(ct);
+                return await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Fel vid hämtning av TV-serie: {ex.Message}");
+                return null;
+            }
+        }
     }
 }

@@ -8,5 +8,6 @@
         public double? Rating { get; set; }
         public string? PosterUrl { get; set; }
         public string? ReleaseDate { get; set; }
+        public List<string> Genres { get; set; } = new();
     }
 }
