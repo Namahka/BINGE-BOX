@@ -1,50 +1,45 @@
-// src/App.jsx
 import { useState, useEffect } from "react";
 import {
   BrowserRouter as Router,
   Routes,
   Route,
   useNavigate,
+  useLocation,
 } from "react-router-dom";
 import { getPopularMovies, searchMovies } from "./api";
 import SearchBar from "./components/SearchBar";
 import MovieCard from "./components/MovieCard";
 import "./index.css";
 import PersonDetails from "./pages/PersonDetails";
-import MovieDetails from "./pages/MovieDetails"; 
+import MovieDetails from "./pages/MovieDetails";
 
+// ===============================
+// 🟡 Header (titel + sökfält) – visas på alla sidor
+// ===============================
+function Header({ onSearch }) {
+  const navigate = useNavigate();
+  const handleLogoClick = () => navigate("/");
+
+  return (
+    <div className="bg-slate-900 text-white py-6 text-center border-b border-slate-700">
+      <h1
+        className="text-5xl font-bold text-yellow-400 mb-4 cursor-pointer hover:text-yellow-300 transition"
+        onClick={handleLogoClick}
+      >
+        BINGE BOX
+      </h1>
+      <div className="max-w-xl mx-auto">
+        <SearchBar onSearch={onSearch} />
+      </div>
+    </div>
+  );
+}
 
 // ===============================
 // 🧩 Huvudsida (Popular + Sökning)
 // ===============================
-function HomePage() {
-  const [movies, setMovies] = useState([]);
-  const [mode, setMode] = useState("popular");
-  const [query, setQuery] = useState("");
-  const [category, setCategory] = useState("all");
-
-  useEffect(() => {
-    async function loadPopular() {
-      const data = await getPopularMovies();
-      setMovies(data);
-    }
-    loadPopular();
-  }, []);
-
-  const handleSearch = async (q, cat) => {
-    setQuery(q);
-    setCategory(cat);
-    setMode("search");
-    const data = await searchMovies(q, cat);
-    setMovies(data);
-  };
-
-  const handleBackToPopular = async () => {
-    setMode("popular");
-    const data = await getPopularMovies();
-    setMovies(data);
-    setQuery("");
-  };
+function HomePage({ onSearch, movies, mode, query, category, onBack }) {
+  const navigate = useNavigate();
 
   const formatCategoryName = (key) => {
     switch (key) {
@@ -53,40 +48,27 @@ function HomePage() {
       case "tv":
         return "TV Episodes";
       case "person":
-      case "celebs":
         return "Celebs";
       case "company":
-      case "companies":
         return "Companies";
       case "keyword":
-      case "keywords":
         return "Keywords";
       default:
         return "All";
     }
   };
 
-  const navigate = useNavigate();
-
   return (
     <main className="min-h-screen bg-slate-900 text-white px-4 py-8">
-      <h1 className="text-5xl font-bold text-yellow-400 mb-6 text-center">
-        BINGE BOX
-      </h1>
-
-      <SearchBar onSearch={handleSearch} />
-
       {mode === "search" && (
         <>
-          <p className="mt-6 text-center text-gray-300">
+          <p className="mt-4 text-center text-gray-300">
             Showing results for{" "}
-            <span className="text-yellow-400">
-              {formatCategoryName(category)}
-            </span>{" "}
+            <span className="text-yellow-400">{formatCategoryName(category)}</span>{" "}
             matching <em className="text-yellow-300">"{query}"</em>
           </p>
           <button
-            onClick={handleBackToPopular}
+            onClick={onBack}
             className="mt-2 mx-auto block text-yellow-400 hover:underline"
           >
             ← Back to popular
@@ -96,9 +78,7 @@ function HomePage() {
 
       <div className="mt-6 grid gap-6 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
         {movies.length === 0 && (
-          <p className="col-span-full text-center text-gray-400">
-            No results.
-          </p>
+          <p className="col-span-full text-center text-gray-400">No results.</p>
         )}
 
         {movies.map((m) => (
@@ -122,16 +102,75 @@ function HomePage() {
 }
 
 // ===============================
-// 🚀 App med Router
+// 🚀 Hela Appen
 // ===============================
 export default function App() {
+  const [movies, setMovies] = useState([]);
+  const [mode, setMode] = useState("popular");
+  const [query, setQuery] = useState("");
+  const [category, setCategory] = useState("all");
+
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    async function loadPopular() {
+      const data = await getPopularMovies();
+      setMovies(data);
+    }
+    loadPopular();
+  }, []);
+
+  const handleSearch = async (q, cat) => {
+    if (!q.trim()) return;
+    setQuery(q);
+    setCategory(cat);
+    setMode("search");
+
+    const data = await searchMovies(q, cat);
+    setMovies(data);
+
+    // navigera till startsidan om man inte redan är där
+    if (location.pathname !== "/") navigate("/");
+  };
+
+  const handleBackToPopular = async () => {
+    setMode("popular");
+    const data = await getPopularMovies();
+    setMovies(data);
+    setQuery("");
+  };
+
   return (
-    <Router>
+    <>
+      <Header onSearch={handleSearch} />
       <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/movie/:id" element={<MovieDetails />} /> {/* 🎬 trailer + detaljer */}
-        <Route path="/person/:id" element={<PersonDetails />} /> {/* 👤 skådespelarsida */}
+        <Route
+          path="/"
+          element={
+            <HomePage
+              onSearch={handleSearch}
+              movies={movies}
+              mode={mode}
+              query={query}
+              category={category}
+              onBack={handleBackToPopular}
+            />
+          }
+        />
+        <Route path="/movie/:id" element={<MovieDetails />} />
+        <Route path="/person/:id" element={<PersonDetails />} />
       </Routes>
-    </Router>
+    </>
   );
 }
+
+// Wrappa hela appen i Router
+import { createRoot } from "react-dom/client";
+import React from "react";
+
+createRoot(document.getElementById("root")).render(
+  <Router>
+    <App />
+  </Router>
+);
