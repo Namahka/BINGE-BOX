@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -16,11 +16,12 @@ import MovieDetails from "./pages/MovieDetails";
 // ===============================
 // 🟡 HEADER (Titel + Sökfält)
 // ===============================
-function Header({ onSearch }) {
+function Header({ onSearch, onClearSearch, searchRef }) {
   const navigate = useNavigate();
 
   const handleLogoClick = () => {
-    navigate("/");
+    onClearSearch(); // rensar sökning och fält
+    navigate("/"); // till startsidan
     window.scrollTo(0, 0);
   };
 
@@ -34,16 +35,16 @@ function Header({ onSearch }) {
       </h1>
 
       <div className="max-w-xl mx-auto">
-        <SearchBar onSearch={onSearch} />
+        <SearchBar ref={searchRef} onSearch={onSearch} onClearSearch={onClearSearch} />
       </div>
     </header>
   );
 }
 
 // ===============================
-// 🧩 HUVUDSIDA (Popular + Sökresultat)
+// 🧩 HUVUDSIDA
 // ===============================
-function HomePage({ movies, mode, query, category, onBack }) {
+function HomePage({ movies, mode, query, category, onBack, loading }) {
   const navigate = useNavigate();
 
   const formatCategoryName = (key) => {
@@ -54,18 +55,13 @@ function HomePage({ movies, mode, query, category, onBack }) {
         return "TV Shows";
       case "person":
         return "Celebrities";
-      case "company":
-        return "Companies";
-      case "keyword":
-        return "Keywords";
       default:
         return "All";
     }
   };
 
   return (
-    <main className="min-h-screen bg-slate-900 text-white px-4 py-8">
-      {/* 🔍 Sökresultatinfo */}
+    <main className="min-h-screen bg-slate-900 text-white px-4 py-8 relative">
       {mode === "search" && (
         <>
           <p className="mt-4 text-center text-gray-300">
@@ -77,7 +73,7 @@ function HomePage({ movies, mode, query, category, onBack }) {
           </p>
 
           <button
-            onClick={onBack}
+            onClick={() => onBack(false)}
             className="mt-3 mx-auto block text-yellow-400 hover:underline"
           >
             ← Back to popular
@@ -86,8 +82,8 @@ function HomePage({ movies, mode, query, category, onBack }) {
       )}
 
       {/* 🎬 Filmlista */}
-      <div className="mt-8 grid gap-6 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-        {movies.length === 0 && (
+      <div className="mt-8 grid gap-6 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 relative">
+        {movies.length === 0 && !loading && (
           <p className="col-span-full text-center text-gray-400">
             No results found.
           </p>
@@ -102,7 +98,12 @@ function HomePage({ movies, mode, query, category, onBack }) {
                   ? `/person/${m.id}`
                   : `/${m.mediaType || "movie"}/${m.id}`,
                 {
-                  state: { mediaType: m.mediaType || "movie" },
+                  state: {
+                    mediaType: m.mediaType || "movie",
+                    fromSearch: mode === "search", // 👈 markerar att vi kom från sök
+                    query,
+                    category,
+                  },
                 }
               )
             }
@@ -111,13 +112,20 @@ function HomePage({ movies, mode, query, category, onBack }) {
             <MovieCard movie={m} />
           </div>
         ))}
+
+        {/* 🌀 Laddnings-overlay */}
+        {loading && (
+          <div className="absolute inset-0 bg-slate-900/70 flex items-center justify-center rounded-lg">
+            <div className="w-10 h-10 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        )}
       </div>
     </main>
   );
 }
 
 // ===============================
-// 🚀 Hela AppContent-komponenten
+// 🚀 APP-INNEHÅLL
 // ===============================
 function AppContent() {
   const [movies, setMovies] = useState([]);
@@ -129,10 +137,18 @@ function AppContent() {
 
   const navigate = useNavigate();
   const location = useLocation();
+  const searchRef = useRef(null);
 
-  // ===============================
+  // 🧭 Rensa sökning vid browser-back
+  useEffect(() => {
+    const handlePopState = () => {
+      if (searchRef.current) searchRef.current.clearInput();
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
   // 🟢 Ladda populära filmer vid start
-  // ===============================
   useEffect(() => {
     async function loadPopular() {
       try {
@@ -149,27 +165,34 @@ function AppContent() {
       }
     }
 
-    // Ladda endast vid start / navigering till "/"
     if (location.pathname === "/" && movies.length === 0) {
       loadPopular();
     }
   }, [location.pathname]);
 
-  // ===============================
   // 🔍 Hantera sökning
-  // ===============================
   const handleSearch = async (q, cat) => {
-    if (!q.trim()) return;
+    if (!q || !q.trim()) return;
     setLoading(true);
     setError(null);
 
     try {
+      const data = await searchMovies(q, cat);
+      const results = Array.isArray(data) ? data : [];
+
+      const sorted = [
+        ...results.filter((item) => item.mediaType === "person"),
+        ...results.filter((item) => item.mediaType !== "person"),
+      ];
+
+      setMovies(sorted);
       setQuery(q);
       setCategory(cat);
       setMode("search");
 
-      const data = await searchMovies(q, cat);
-      setMovies(data);
+      // 🧹 rensa fältet direkt efter sök
+      if (searchRef.current) searchRef.current.clearInput();
+
       navigate("/");
     } catch (err) {
       console.error("⚠️ Fel vid sökning:", err);
@@ -179,39 +202,31 @@ function AppContent() {
     }
   };
 
-  // ===============================
-  // ⏪ Tillbaka till populära
-  // ===============================
-  const handleBackToPopular = async () => {
+  // 🧹 Rensa sökning (logga, back-to-popular)
+  const clearSearch = async () => {
+    setQuery("");
+    setCategory("all");
+    setMode("popular");
+
+    if (searchRef.current) searchRef.current.clearInput();
+
     try {
       setLoading(true);
-      setError(null);
-      setQuery("");
-      setCategory("all");
-      setMode("popular");
       const data = await getPopularMovies();
       setMovies(data);
+      navigate("/");
     } catch (err) {
       console.error("⚠️ Fel vid hämtning:", err);
-      setError("Kunde inte ladda populära filmer.");
     } finally {
       setLoading(false);
     }
   };
 
-  // ===============================
-  // 📺 Rendering
-  // ===============================
   return (
     <>
-      <Header onSearch={handleSearch} />
+      <Header onSearch={handleSearch} onClearSearch={clearSearch} searchRef={searchRef} />
 
-      {loading && (
-        <p className="text-center text-slate-400 mt-10">Laddar...</p>
-      )}
-      {error && (
-        <p className="text-center text-red-500 mt-10">{error}</p>
-      )}
+      {error && <p className="text-center text-red-500 mt-10">{error}</p>}
 
       <Routes>
         <Route
@@ -222,7 +237,8 @@ function AppContent() {
               mode={mode}
               query={query}
               category={category}
-              onBack={handleBackToPopular}
+              onBack={clearSearch}
+              loading={loading}
             />
           }
         />
@@ -235,7 +251,7 @@ function AppContent() {
 }
 
 // ===============================
-// 🧱 ROTKOMPONENT (Router)
+// 🧱 ROT-APP
 // ===============================
 export default function App() {
   return (

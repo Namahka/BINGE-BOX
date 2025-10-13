@@ -40,11 +40,16 @@ export default function PersonDetails() {
   return (
     <div className="min-h-screen bg-slate-900 text-white p-6">
       <button
-        onClick={() => navigate(-1)}
-        className="mb-6 bg-slate-700 hover:bg-slate-600 text-white py-2 px-4 rounded"
-      >
-        ← Tillbaka
-      </button>
+  onClick={() => {
+    navigate(-1);
+    // triggar sökrutan att rensas i App.jsx
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }}
+  className="mb-6 bg-slate-700 hover:bg-slate-600 text-white py-2 px-4 rounded"
+>
+  ← Tillbaka
+</button>
+
 
       <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-10">
         {person.profile ? (

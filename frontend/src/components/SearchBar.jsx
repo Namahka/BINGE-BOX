@@ -1,12 +1,18 @@
-import { useState } from "react";
+import React, { useState, forwardRef, useImperativeHandle } from "react";
 
-export default function SearchBar({ onSearch }) {
+const SearchBar = forwardRef(({ onSearch, onClearSearch }, ref) => {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
 
+  // Gör att App kan rensa sökrutan via ref
+  useImperativeHandle(ref, () => ({
+    clearInput: () => setQuery(""),
+  }));
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (query.trim()) onSearch(query, category);
+    if (!query.trim()) return;
+    onSearch(query, category);
   };
 
   return (
@@ -33,6 +39,19 @@ export default function SearchBar({ onSearch }) {
         className="bg-slate-800 text-slate-200 px-3 w-full placeholder-slate-400 focus:outline-none text-sm"
       />
 
+      {query && (
+        <button
+          type="button"
+          onClick={() => {
+            setQuery("");
+            onClearSearch();
+          }}
+          className="text-gray-400 px-2 hover:text-yellow-400"
+        >
+          ✕
+        </button>
+      )}
+
       <button
         type="submit"
         className="bg-yellow-400 text-black font-semibold hover:bg-yellow-300 transition px-4 py-2 text-sm"
@@ -41,4 +60,6 @@ export default function SearchBar({ onSearch }) {
       </button>
     </form>
   );
-}
+});
+
+export default SearchBar;
