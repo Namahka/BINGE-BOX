@@ -1,12 +1,11 @@
 import { createContext, useContext, useState, useEffect } from "react";
 
-
 const FavoritesContext = createContext();
 
 export function FavoritesProvider({ children }) {
   const [favorites, setFavorites] = useState([]);
 
-  // 🟢 Ladda från localStorage
+  // 🟢 Ladda favoriter från localStorage vid start
   useEffect(() => {
     const saved = localStorage.getItem("favorites");
     if (saved) {
@@ -14,7 +13,7 @@ export function FavoritesProvider({ children }) {
     }
   }, []);
 
-  // 💾 Spara när något ändras
+  // 💾 Spara favoriter när något ändras
   useEffect(() => {
     localStorage.setItem("favorites", JSON.stringify(favorites));
   }, [favorites]);
@@ -38,7 +37,7 @@ export function FavoritesProvider({ children }) {
   );
 }
 
-// 🧩 Detta är exakt vad MovieCard använder:
+// 🧩 Hook som används överallt (MovieCard, Favorites-sida)
 export function useFavorites() {
   return useContext(FavoritesContext);
 }

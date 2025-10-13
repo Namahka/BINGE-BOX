@@ -1,6 +1,6 @@
 // src/api.js
 
-const API_URL = "https://localhost:7299"; // ändra port vid behov
+const API_URL = "https://localhost:7299"; // 🔧 Ändra port om din backend kör på annan port
 
 // ===============================
 // 🎬 Hämtar populära filmer
@@ -70,7 +70,7 @@ export async function loginUser(identifier, password) {
     const res = await fetch(`${API_URL}/api/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ identifier, password }), // 👈 ändrat!
+      body: JSON.stringify({ identifier, password }),
     });
 
     if (!res.ok) {
@@ -87,8 +87,59 @@ export async function loginUser(identifier, password) {
   }
 }
 
+// ===============================
+// ⭐ FAVORITER – Lägg till / ta bort per användare
+// ===============================
+export async function toggleFavorite(movie) {
+  const token = localStorage.getItem("token");
+  if (!token) throw new Error("Ingen token sparad");
 
+  const res = await fetch(`${API_URL}/api/favorites/toggle`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      movieId: movie.id,
+      title: movie.title,
+      posterUrl: movie.posterUrl,
+      rating: movie.rating,
+      genre: movie.genre || "Okänd genre",
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error("❌ API-fel:", errText);
+    throw new Error("Misslyckades uppdatera favoriter");
+  }
+
+  return await res.json();
+}
+
+// ===============================
+// 💾 Hämtar sparade favoriter
+// ===============================
+export async function getFavorites() {
+  const token = localStorage.getItem("token");
+  if (!token) throw new Error("Ingen token sparad");
+
+  const res = await fetch(`${API_URL}/api/favorites`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json",
+    },
+  });
+
+  if (!res.ok) throw new Error("Kunde inte hämta favoriter");
+  return await res.json();
+}
+
+// ===============================
 // 🧠 Hämta profil (kräver JWT-token)
+// ===============================
 export async function getProfile() {
   const token = localStorage.getItem("token");
   if (!token) throw new Error("Ingen token sparad – logga in igen.");
@@ -109,14 +160,15 @@ export async function getProfile() {
     throw err;
   }
 }
+
+// ===============================
 // 🟢 Registrera ny användare
+// ===============================
 export async function registerUser(userData) {
   try {
-    const res = await fetch("https://localhost:7299/api/auth/register", {
+    const res = await fetch(`${API_URL}/api/auth/register`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(userData),
     });
 
