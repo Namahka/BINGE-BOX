@@ -1,12 +1,6 @@
-﻿using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
-using BingeBox.External.Tmdb;
-using BingeBox.Models;
-using BingeBox.Options;
-using System.Collections.Generic;
+﻿using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
+using BingeBox.External.Tmdb;
 
 namespace BingeBox.Controllers
 {
@@ -15,333 +9,186 @@ namespace BingeBox.Controllers
     public class TmdbController : ControllerBase
     {
         private readonly ITmdbClient _tmdb;
-        private readonly string _imageBase;
+        private readonly string _imageBase = "https://image.tmdb.org/t/p/";
 
-        // TMDb genre mapping
-        private static readonly Dictionary<int, string> GenreNames = new()
-        {
-            { 28, "Action" },
-            { 12, "Adventure" },
-            { 16, "Animation" },
-            { 35, "Comedy" },
-            { 80, "Crime" },
-            { 99, "Documentary" },
-            { 18, "Drama" },
-            { 10751, "Family" },
-            { 14, "Fantasy" },
-            { 36, "History" },
-            { 27, "Horror" },
-            { 10402, "Music" },
-            { 9648, "Mystery" },
-            { 10749, "Romance" },
-            { 878, "Science Fiction" },
-            { 10770, "TV Movie" },
-            { 53, "Thriller" },
-            { 10752, "War" },
-            { 37, "Western" }
-        };
-
-        public TmdbController(ITmdbClient tmdb, IOptions<TmdbOptions> opts)
+        public TmdbController(ITmdbClient tmdb)
         {
             _tmdb = tmdb;
-            _imageBase = (opts.Value.ImageBase ?? "https://image.tmdb.org/t/p").TrimEnd('/');
         }
 
-        // =============================
-        // POPULAR
-        // =============================
+        // 🔥 Populära filmer
         [HttpGet("popular")]
-        public async Task<IActionResult> GetPopular(int page = 1)
+        public async Task<IActionResult> GetPopular([FromQuery] int page = 1)
         {
             var result = await _tmdb.GetPopularAsync(page);
-
-            var movies = result.results.Select(m => new TmdbMovieDto
+            var formatted = result.results.Select(m => new
             {
-                Id = m.id,
-                Title = m.title ?? m.name,
-                Overview = string.IsNullOrWhiteSpace(m.overview)
-                    ? "No description available."
-                    : m.overview.Trim(),
-                Rating = m.vote_average > 0 ? m.vote_average : null,
-                PosterUrl = !string.IsNullOrEmpty(m.poster_path)
-                    ? $"{_imageBase}/w500{m.poster_path}"
-                    : $"{_imageBase}/w500/placeholder.jpg",
-                ReleaseDate = m.release_date ?? m.first_air_date,
-                Genres = (m.genre_ids != null && m.genre_ids.Count > 0)
-                    ? m.genre_ids.Select(id => GenreNames.ContainsKey(id) ? GenreNames[id] : "Unknown").ToList()
-                    : new List<string>()
+                id = m.id,
+                title = m.title ?? m.name,
+                overview = m.overview,
+                rating = m.vote_average,
+                releaseDate = m.release_date ?? m.first_air_date,
+                posterUrl = m.poster_path != null ? $"{_imageBase}w500{m.poster_path}" : null,
+                mediaType = m.title != null ? "movie" : "tv"
             });
-
-            return Ok(movies);
+            return Ok(formatted);
         }
 
-        // =============================
-        // SEARCH
-        // =============================
+        // 🔍 Dynamisk sökning
         [HttpGet("search/{category}")]
-        public async Task<IActionResult> SearchByCategory(string category, [FromQuery] string query, int page = 1)
+        public async Task<IActionResult> Search(string category, [FromQuery] string query, [FromQuery] int page = 1)
         {
             if (string.IsNullOrWhiteSpace(query))
-                return BadRequest("Query is required.");
+                return BadRequest("Query cannot be empty.");
 
-            var cat = category?.ToLower() ?? "all";
-            TmdbSearchResult result;
-
-            switch (cat)
+            var result = category.ToLower() switch
             {
-                case "movie":
-                case "titles":
-                    result = await _tmdb.SearchMoviesAsync(query, page);
-                    break;
-                case "tv":
-                case "episodes":
-                    result = await _tmdb.SearchTvAsync(query, page);
-                    break;
-                case "person":
-                case "celebs":
-                    result = await _tmdb.SearchPersonAsync(query, page);
-                    break;
-                default:
-                    result = await _tmdb.SearchMultiAsync(query, page);
-                    break;
-            }
-
-            var items = new List<TmdbMovieDto>();
-            TmdbItem? matchedPerson = null;
-
-            foreach (var m in result.results)
-            {
-                bool isPerson =
-                    (cat == "person" || cat == "celebs") ||
-                    (m.known_for != null && m.known_for.Count > 0) ||
-                    (string.IsNullOrEmpty(m.title) && !string.IsNullOrEmpty(m.name) && string.IsNullOrEmpty(m.release_date));
-
-                if (isPerson && m.name?.ToLower() == query.Trim().ToLower())
-                {
-                    matchedPerson = m;
-                    continue;
-                }
-
-                items.Add(MapItem(m, false));
-            }
-
-            if (matchedPerson != null)
-                items.Insert(0, MapItem(matchedPerson, true));
-
-            items = items
-                .OrderByDescending(i => i.ReleaseDate == null && i.Overview.StartsWith("Known for"))
-                .ThenByDescending(i => i.Rating ?? 0)
-                .ToList();
-
-            return Ok(items);
-        }
-
-        // =============================
-        // MAP ITEM
-        // =============================
-        private TmdbMovieDto MapItem(TmdbItem m, bool isPerson)
-        {
-            if (isPerson)
-            {
-                var knownForList = m.known_for?
-                    .Select(k => k.title ?? k.name)
-                    .Where(s => !string.IsNullOrEmpty(s))
-                    .Take(3)
-                    .ToList() ?? new();
-
-                var overview = knownForList.Count > 0
-                    ? $"Known for: {string.Join(", ", knownForList)}"
-                    : "Known for: Not available";
-
-                var imageUrl = !string.IsNullOrEmpty(m.profile_path)
-                    ? $"{_imageBase}/w500{m.profile_path}"
-                    : (m.known_for?.FirstOrDefault(k => !string.IsNullOrEmpty(k.poster_path))?.poster_path != null
-                        ? $"{_imageBase}/w500{m.known_for.First(k => !string.IsNullOrEmpty(k.poster_path)).poster_path}"
-                        : $"{_imageBase}/w500/placeholder.jpg");
-
-                return new TmdbMovieDto
-                {
-                    Id = m.id,
-                    Title = m.name ?? "(Unknown Person)",
-                    Overview = overview,
-                    Rating = null,
-                    PosterUrl = imageUrl,
-                    ReleaseDate = null
-                };
-            }
-
-            var genres = (m.genre_ids != null && m.genre_ids.Count > 0)
-                ? m.genre_ids.Select(id => GenreNames.ContainsKey(id) ? GenreNames[id] : "Unknown").ToList()
-                : new List<string>();
-
-            var title = m.title ?? m.name ?? "(Untitled)";
-            var overviewText = string.IsNullOrWhiteSpace(m.overview)
-                ? "No description available."
-                : m.overview.Trim();
-
-            var image =
-                !string.IsNullOrEmpty(m.poster_path)
-                    ? $"{_imageBase}/w500{m.poster_path}"
-                    : $"{_imageBase}/w500/placeholder.jpg";
-
-            return new TmdbMovieDto
-            {
-                Id = m.id,
-                Title = title,
-                Overview = overviewText,
-                Rating = m.vote_average > 0 ? m.vote_average : null,
-                PosterUrl = image,
-                ReleaseDate = m.release_date ?? m.first_air_date,
-                Genres = genres
+                "movie" => await _tmdb.SearchMoviesAsync(query, page),
+                "tv" => await _tmdb.SearchTvAsync(query, page),
+                "person" => await _tmdb.SearchPersonAsync(query, page),
+                _ => await _tmdb.SearchMultiAsync(query, page)
             };
+
+            var formatted = result.results.Select(r => new
+            {
+                id = r.id,
+                title = r.title ?? r.name,
+                overview = r.overview ?? "",
+                rating = r.vote_average,
+                posterUrl = r.poster_path != null
+                    ? $"{_imageBase}w500{r.poster_path}"
+                    : (r.profile_path != null ? $"{_imageBase}w300{r.profile_path}" : null),
+                mediaType = !string.IsNullOrEmpty(r.media_type)
+                    ? r.media_type
+                    : (r.title != null ? "movie" : r.first_air_date != null ? "tv" : "person"),
+                knownFor = r.known_for?.Select(k => new
+                {
+                    id = k.id,
+                    title = k.title ?? k.name,
+                    mediaType = k.media_type,
+                    overview = k.overview,
+                    rating = k.vote_average,
+                    posterUrl = k.poster_path != null ? $"{_imageBase}w500{k.poster_path}" : null
+                })
+            });
+
+            return Ok(formatted);
         }
 
-        // =============================
-        // 🎬 MOVIE DETAILS (extended)
-        // =============================
-        [HttpGet("movie/{id}")]
-        public async Task<IActionResult> GetMovieById(int id)
+        // 🎬 Film eller serie-detaljer
+        [HttpGet("details/{type}/{id}")]
+        public async Task<IActionResult> GetDetails(string type, int id)
         {
-            var details = await _tmdb.GetMovieDetailsAsync(id);
-            if (details == null)
-                return NotFound(new { message = "Movie not found" });
-
-            var root = details.RootElement;
-
-            var title = root.GetProperty("title").GetString();
-            var overview = root.TryGetProperty("overview", out var o) ? o.GetString() : "No overview available.";
-            var rating = root.TryGetProperty("vote_average", out var v) ? v.GetDouble() : 0;
-            var release = root.TryGetProperty("release_date", out var rd) ? rd.GetString() : null;
-            var poster = root.TryGetProperty("poster_path", out var p) ? $"{_imageBase}/w500{p.GetString()}" : null;
-
-            // === Genres ===
-            var genres = new List<string>();
-            if (root.TryGetProperty("genres", out var gEl))
+            JsonDocument? json = type.ToLower() switch
             {
-                foreach (var g in gEl.EnumerateArray())
-                {
-                    genres.Add(g.GetProperty("name").GetString());
-                }
-            }
+                "movie" => await _tmdb.GetMovieDetailsAsync(id),
+                "tv" => await _tmdb.GetTvDetailsAsync(id),
+                _ => null
+            };
 
-            // === Trailer ===
+            if (json == null) return NotFound();
+
+            var root = json.RootElement;
+            string title = root.TryGetProperty("title", out var t)
+                ? t.GetString()
+                : root.GetProperty("name").GetString();
+
+            string overview = root.TryGetProperty("overview", out var o) ? o.GetString() : "";
+            string poster = root.TryGetProperty("poster_path", out var posterProp) && posterProp.ValueKind != JsonValueKind.Null
+                ? $"{_imageBase}w500{posterProp.GetString()}"
+                : null;
+            string releaseDate = root.TryGetProperty("release_date", out var r1)
+                ? r1.GetString()
+                : (root.TryGetProperty("first_air_date", out var r2) ? r2.GetString() : null);
+            double rating = root.TryGetProperty("vote_average", out var ra) ? ra.GetDouble() : 0;
+
             string? trailer = null;
-            if (root.TryGetProperty("videos", out var videos) && videos.TryGetProperty("results", out var results))
+            if (root.TryGetProperty("videos", out var vids))
             {
-                string? fallback = null;
-
-                foreach (var vid in results.EnumerateArray())
+                foreach (var v in vids.GetProperty("results").EnumerateArray())
                 {
-                    if (vid.TryGetProperty("site", out var site) && site.GetString() == "YouTube" &&
-                        vid.TryGetProperty("key", out var key))
+                    if (v.GetProperty("site").GetString() == "YouTube" &&
+                        v.GetProperty("type").GetString() == "Trailer")
                     {
-                        var url = $"https://www.youtube.com/embed/{key.GetString()}";
-
-                        if (vid.TryGetProperty("type", out var type))
-                        {
-                            var typeStr = type.GetString()?.ToLower() ?? "";
-
-                            if (typeStr.Contains("trailer"))
-                            {
-                                trailer = url; // 🎬 Hittade trailer → använd direkt
-                                break;
-                            }
-                            else if (fallback == null && (typeStr.Contains("teaser") || typeStr.Contains("clip")))
-                            {
-                                fallback = url; // 💾 Fallback om trailer saknas
-                            }
-                        }
+                        trailer = $"https://www.youtube.com/watch?v={v.GetProperty("key").GetString()}";
+                        break;
                     }
                 }
-
-                // Om ingen trailer hittades, använd fallback (teaser/clip)
-                trailer ??= fallback;
             }
 
-
-            // === Cast ===
-            var castList = new List<object>();
-            if (root.TryGetProperty("credits", out var credits) && credits.TryGetProperty("cast", out var cast))
+            var cast = new List<object>();
+            if (root.TryGetProperty("credits", out var credits))
             {
-                foreach (var actor in cast.EnumerateArray().Take(10))
-                {
-                    castList.Add(new
+                cast = credits.GetProperty("cast").EnumerateArray().Take(10)
+                    .Select(c => new
                     {
-                        Id = actor.GetProperty("id").GetInt32(),
-                        Name = actor.GetProperty("name").GetString(),
-                        Character = actor.GetProperty("character").GetString(),
-                        Profile = actor.TryGetProperty("profile_path", out var pp) && pp.ValueKind != JsonValueKind.Null
-                            ? $"{_imageBase}/w200{pp.GetString()}"
+                        id = c.GetProperty("id").GetInt32(),
+                        name = c.GetProperty("name").GetString(),
+                        character = c.TryGetProperty("character", out var ch) ? ch.GetString() : "",
+                        profile = c.TryGetProperty("profile_path", out var prof) && prof.ValueKind != JsonValueKind.Null
+                            ? $"{_imageBase}w200{prof.GetString()}"
                             : null
-                    });
-                }
+                    })
+                    .ToList<object>();
             }
 
             return Ok(new
             {
-                Id = id,
-                Title = title,
-                Overview = overview,
-                Rating = rating,
-                ReleaseDate = release,
-                PosterUrl = poster,
-                Trailer = trailer,
-                Genres = genres,
-                Cast = castList
+                id,
+                title,
+                overview,
+                rating,
+                releaseDate,
+                posterUrl = poster,
+                trailer,
+                cast
             });
         }
 
-        // =============================
-        // 👤 PERSON DETAILS
-        // =============================
+        // 👤 PERSON-DETALJER
         [HttpGet("person/{id}")]
-        public async Task<IActionResult> GetPersonDetails(int id, [FromServices] IOptions<TmdbOptions> opts)
+        public async Task<IActionResult> GetPerson(int id)
         {
-            var apiKey = opts.Value.ApiKey;
-            var url = $"https://api.themoviedb.org/3/person/{id}?api_key={apiKey}&language=en-US&append_to_response=combined_credits";
+            var json = await _tmdb.GetPersonDetailsAsync(id);
+            if (json == null) return NotFound();
 
-            using var client = new HttpClient();
-            var result = await client.GetFromJsonAsync<JsonElement>(url);
+            var root = json.RootElement;
+            string name = root.GetProperty("name").GetString() ?? "Okänd";
+            string biography = root.TryGetProperty("biography", out var b) ? b.GetString() ?? "" : "";
+            string profile = root.TryGetProperty("profile_path", out var p) && p.ValueKind != JsonValueKind.Null
+                ? $"{_imageBase}w500{p.GetString()}"
+                : null;
 
-            if (result.ValueKind == JsonValueKind.Undefined)
-                return NotFound();
-
-            var name = result.GetProperty("name").GetString();
-            var biography = result.TryGetProperty("biography", out var bioEl)
-                ? bioEl.GetString()
-                : "Ingen biografi tillgänglig.";
-
-            var profile = result.TryGetProperty("profile_path", out var profEl)
-                ? $"{_imageBase}/w500{profEl.GetString()}"
-                : $"{_imageBase}/w500/placeholder.jpg";
-
+            // känd-för
             var knownFor = new List<object>();
-            if (result.TryGetProperty("combined_credits", out var credits) &&
-                credits.TryGetProperty("cast", out var castArray))
+            if (root.TryGetProperty("combined_credits", out var credits))
             {
-                foreach (var item in castArray.EnumerateArray().Take(10))
-                {
-                    knownFor.Add(new
+                knownFor = credits.GetProperty("cast").EnumerateArray()
+                    .Where(c => c.TryGetProperty("poster_path", out _))
+                    .OrderByDescending(c => c.GetProperty("popularity").GetDouble())
+                    .Take(10)
+                    .Select(c => new
                     {
-                        Id = item.GetProperty("id").GetInt32(),
-                        Title = item.GetProperty("title").GetString() ?? item.GetProperty("name").GetString(),
-                        Poster = item.TryGetProperty("poster_path", out var poster)
-                            ? $"{_imageBase}/w300{poster.GetString()}"
-                            : null,
-                        Character = item.TryGetProperty("character", out var ch)
-                            ? ch.GetString()
+                        id = c.GetProperty("id").GetInt32(),
+                        title = c.TryGetProperty("title", out var tt)
+                            ? tt.GetString()
+                            : (c.TryGetProperty("name", out var nn) ? nn.GetString() : "Untitled"),
+                        character = c.TryGetProperty("character", out var ch) ? ch.GetString() : "",
+                        mediaType = c.TryGetProperty("media_type", out var mt) ? mt.GetString() : "movie",
+                        posterUrl = c.TryGetProperty("poster_path", out var pp) && pp.ValueKind != JsonValueKind.Null
+                            ? $"{_imageBase}w500{pp.GetString()}"
                             : null
-                    });
-                }
+                    })
+                    .ToList<object>();
             }
 
             return Ok(new
             {
-                Id = id,
-                Name = name,
-                Biography = biography,
-                Profile = profile,
-                KnownFor = knownFor
+                id,
+                name,
+                biography,
+                profile,
+                knownFor
             });
         }
     }

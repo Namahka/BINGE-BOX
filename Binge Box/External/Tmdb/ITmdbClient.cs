@@ -14,10 +14,9 @@ namespace BingeBox.External.Tmdb
         Task<TmdbSearchResult> SearchKeywordAsync(string query, int page = 1, CancellationToken ct = default);
         Task<TmdbSearchResult> SearchMultiAsync(string query, int page = 1, CancellationToken ct = default);
 
-        // 🎬 Film-detaljer (med trailer + credits)
         Task<JsonDocument?> GetMovieDetailsAsync(int id, CancellationToken ct = default);
-
-        // 📺 TV-detaljer (för serier)
         Task<JsonDocument?> GetTvDetailsAsync(int id, CancellationToken ct = default);
+        Task<JsonDocument?> GetPersonDetailsAsync(int id, CancellationToken ct = default);
+        Task<JsonDocument?> GetDetailsAsync(string type, int id, CancellationToken ct = default);
     }
 }

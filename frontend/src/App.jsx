@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -6,6 +6,7 @@ import {
   useNavigate,
   useLocation,
 } from "react-router-dom";
+import { createRoot } from "react-dom/client";
 import { getPopularMovies, searchMovies } from "./api";
 import SearchBar from "./components/SearchBar";
 import MovieCard from "./components/MovieCard";
@@ -13,18 +14,13 @@ import "./index.css";
 import PersonDetails from "./pages/PersonDetails";
 import MovieDetails from "./pages/MovieDetails";
 
-// ===============================
-// 🟡 Header (titel + sökfält) – visas på alla sidor
-// ===============================
 function Header({ onSearch }) {
   const navigate = useNavigate();
-  const handleLogoClick = () => navigate("/");
-
   return (
     <div className="bg-slate-900 text-white py-6 text-center border-b border-slate-700">
       <h1
+        onClick={() => navigate("/")}
         className="text-5xl font-bold text-yellow-400 mb-4 cursor-pointer hover:text-yellow-300 transition"
-        onClick={handleLogoClick}
       >
         BINGE BOX
       </h1>
@@ -35,28 +31,8 @@ function Header({ onSearch }) {
   );
 }
 
-// ===============================
-// 🧩 Huvudsida (Popular + Sökning)
-// ===============================
-function HomePage({ onSearch, movies, mode, query, category, onBack }) {
+function HomePage({ movies, mode, query, category, onBack }) {
   const navigate = useNavigate();
-
-  const formatCategoryName = (key) => {
-    switch (key) {
-      case "movie":
-        return "Titles";
-      case "tv":
-        return "TV Episodes";
-      case "person":
-        return "Celebs";
-      case "company":
-        return "Companies";
-      case "keyword":
-        return "Keywords";
-      default:
-        return "All";
-    }
-  };
 
   return (
     <main className="min-h-screen bg-slate-900 text-white px-4 py-8">
@@ -64,8 +40,8 @@ function HomePage({ onSearch, movies, mode, query, category, onBack }) {
         <>
           <p className="mt-4 text-center text-gray-300">
             Showing results for{" "}
-            <span className="text-yellow-400">{formatCategoryName(category)}</span>{" "}
-            matching <em className="text-yellow-300">"{query}"</em>
+            <span className="text-yellow-400">{category}</span> matching{" "}
+            <em className="text-yellow-300">"{query}"</em>
           </p>
           <button
             onClick={onBack}
@@ -86,9 +62,9 @@ function HomePage({ onSearch, movies, mode, query, category, onBack }) {
             key={m.id}
             onClick={() =>
               navigate(
-                m.overview?.startsWith("Known for:")
+                m.mediaType === "person"
                   ? `/person/${m.id}`
-                  : `/movie/${m.id}`
+                  : `/details/${m.mediaType}/${m.id}`
               )
             }
             className="cursor-pointer hover:scale-105 transition-transform duration-200"
@@ -101,10 +77,7 @@ function HomePage({ onSearch, movies, mode, query, category, onBack }) {
   );
 }
 
-// ===============================
-// 🚀 Hela Appen
-// ===============================
-export default function App() {
+function AppContent() {
   const [movies, setMovies] = useState([]);
   const [mode, setMode] = useState("popular");
   const [query, setQuery] = useState("");
@@ -126,11 +99,8 @@ export default function App() {
     setQuery(q);
     setCategory(cat);
     setMode("search");
-
     const data = await searchMovies(q, cat);
     setMovies(data);
-
-    // navigera till startsidan om man inte redan är där
     if (location.pathname !== "/") navigate("/");
   };
 
@@ -149,7 +119,6 @@ export default function App() {
           path="/"
           element={
             <HomePage
-              onSearch={handleSearch}
               movies={movies}
               mode={mode}
               query={query}
@@ -158,19 +127,19 @@ export default function App() {
             />
           }
         />
-        <Route path="/movie/:id" element={<MovieDetails />} />
+        <Route path="/details/:type/:id" element={<MovieDetails />} />
         <Route path="/person/:id" element={<PersonDetails />} />
       </Routes>
     </>
   );
 }
 
-// Wrappa hela appen i Router
-import { createRoot } from "react-dom/client";
-import React from "react";
+export default function App() {
+  return (
+    <Router>
+      <AppContent />
+    </Router>
+  );
+}
 
-createRoot(document.getElementById("root")).render(
-  <Router>
-    <App />
-  </Router>
-);
+createRoot(document.getElementById("root")).render(<App />);

@@ -1,4 +1,3 @@
-// src/pages/PersonDetails.jsx
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 
@@ -18,6 +17,7 @@ export default function PersonDetails() {
         const data = await res.json();
         setPerson(data);
       } catch (err) {
+        console.error("❌ Fel vid hämtning av persondata:", err);
         setError(err.message);
       } finally {
         setLoading(false);
@@ -39,6 +39,7 @@ export default function PersonDetails() {
 
   return (
     <div className="min-h-screen bg-slate-900 text-white p-6">
+      {/* Tillbaka-knapp */}
       <button
         onClick={() => navigate(-1)}
         className="mb-6 bg-slate-700 hover:bg-slate-600 text-white py-2 px-4 rounded"
@@ -48,18 +49,27 @@ export default function PersonDetails() {
 
       {/* Huvudinnehåll */}
       <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-10">
-        <img
-          src={person.profile}
-          alt={person.name}
-          className="w-[280px] h-[380px] object-cover rounded-2xl shadow-lg mx-auto md:mx-0"
-        />
+        {/* Profilbild */}
+        {person.profile ? (
+          <img
+            src={person.profile}
+            alt={person.name}
+            className="w-[280px] h-[380px] object-cover rounded-2xl shadow-lg mx-auto md:mx-0"
+          />
+        ) : (
+          <div className="w-[280px] h-[380px] bg-slate-800 flex items-center justify-center rounded-2xl shadow-lg text-slate-500 mx-auto md:mx-0">
+            Ingen bild
+          </div>
+        )}
+
+        {/* Info */}
         <div className="flex-1">
           <h1 className="text-4xl font-extrabold text-yellow-400 mb-4">
             {person.name}
           </h1>
 
           <p className="text-gray-300 leading-relaxed">
-            {showFullBio ? person.biography : shortBio}
+            {showFullBio ? person.biography : shortBio || "Ingen biografi tillgänglig."}
           </p>
 
           {person.biography?.length > 400 && (
@@ -79,23 +89,34 @@ export default function PersonDetails() {
           <h2 className="text-2xl font-semibold text-yellow-400 mt-12 mb-4 text-center md:text-left">
             Känd för
           </h2>
+
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 max-w-6xl mx-auto">
             {person.knownFor.map((m, i) => (
               <div
                 key={i}
-                onClick={() => navigate(`/movie/${m.id}`)}
+                onClick={() =>
+                  navigate(`/details/${m.mediaType || "movie"}/${m.id}`)
+                }
                 className="bg-slate-800 rounded-xl overflow-hidden hover:scale-105 hover:shadow-lg transition-transform duration-200 cursor-pointer"
               >
-                {m.poster && (
+                {m.posterUrl || m.poster ? (
                   <img
-                    src={m.poster}
+                    src={m.posterUrl || m.poster}
                     alt={m.title}
                     className="w-full h-[250px] object-cover"
                   />
+                ) : (
+                  <div className="h-[250px] bg-slate-700 flex items-center justify-center text-slate-500">
+                    Ingen bild
+                  </div>
                 )}
                 <div className="p-2 text-center">
-                  <p className="font-semibold truncate">{m.title}</p>
-                  <p className="text-sm text-gray-400">{m.character}</p>
+                  <p className="font-semibold truncate text-white">{m.title}</p>
+                  {m.character && (
+                    <p className="text-sm text-gray-400 truncate">
+                      {m.character}
+                    </p>
+                  )}
                 </div>
               </div>
             ))}

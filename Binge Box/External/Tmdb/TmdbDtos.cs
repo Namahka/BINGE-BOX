@@ -20,9 +20,13 @@ namespace BingeBox.External.Tmdb
         public string? release_date { get; set; }
         public string? first_air_date { get; set; }
         public string? poster_path { get; set; }
-        public string? profile_path { get; set; } // <---- viktig för skådespelare
+        public string? profile_path { get; set; }
         public List<int>? genre_ids { get; set; }
         public string? known_for_department { get; set; }
+
+        // 🟢 LÄGG TILL DEN HÄR RADEN — FIXAR DINA FEL:
+        public string? media_type { get; set; }
+
         public List<TmdbKnownFor>? known_for { get; set; }
     }
 
