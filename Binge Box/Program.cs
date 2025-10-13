@@ -1,27 +1,60 @@
-﻿using BingeBox.Data;               // Din DbContext
-using BingeBox.Options;            // För TmdbOptions
-using BingeBox.External.Tmdb;      // För ITmdbClient/TmdbClient
+﻿using BingeBox.Data;
+using BingeBox.External.Tmdb;
+using BingeBox.Options;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options; // För IOptions<T>
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // -------------------------------
-// SERVICES
+// 💾 SERVICES
 // -------------------------------
 
 // Controllers
 builder.Services.AddControllers();
 
-// DbContext (SQLite)
+// ✅ SQL SERVER
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Swagger
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+// -------------------------------
+// 🔐 JWT Authentication
+// -------------------------------
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        var key = Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]);
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = false,
+            ValidateAudience = false,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(key)
+        };
+    });
 
-// CORS – öppet under utveckling
+// -------------------------------
+// 🎬 TMDb API-konfiguration
+// -------------------------------
+builder.Services.Configure<TmdbOptions>(builder.Configuration.GetSection("TMDb"));
+
+builder.Services.AddHttpClient("tmdb", (sp, http) =>
+{
+    var opts = sp.GetRequiredService<IOptions<TmdbOptions>>().Value;
+    http.BaseAddress = new Uri(opts.BaseUrl.TrimEnd('/') + "/");
+    http.Timeout = TimeSpan.FromSeconds(15);
+});
+
+builder.Services.AddScoped<ITmdbClient, TmdbClient>();
+
+// -------------------------------
+// 🌐 CORS – öppet under utveckling
+// -------------------------------
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -31,30 +64,46 @@ builder.Services.AddCors(options =>
 });
 
 // -------------------------------
-// TMDb API-konfiguration
+// 🧾 Swagger med JWT-stöd
 // -------------------------------
-
-// Läser in secrets/appsettings → TmdbOptions
-builder.Services.Configure<TmdbOptions>(builder.Configuration.GetSection("TMDb"));
-
-// Skapar en återanvändbar HttpClient för TMDb-anrop
-builder.Services.AddHttpClient("tmdb", (sp, http) =>
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
 {
-    var opts = sp.GetRequiredService<IOptions<TmdbOptions>>().Value;
-    http.BaseAddress = new Uri(opts.BaseUrl.TrimEnd('/') + "/");
-    http.Timeout = TimeSpan.FromSeconds(15);
+    options.SwaggerDoc("v1", new OpenApiInfo { Title = "Binge Box API", Version = "v1" });
+
+    // 🔒 Lägg till "Authorize" i Swagger
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Skriv 'Bearer' + ett mellanslag + din JWT token."
+    });
+
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
 });
 
-// Registrera TMDb-klienten
-builder.Services.AddScoped<ITmdbClient, TmdbClient>();
-
 // -------------------------------
-// APP PIPELINE
+// 🚀 APP PIPELINE
 // -------------------------------
 
 var app = builder.Build();
 
-// Swagger (endast i Development)
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -65,6 +114,7 @@ app.UseHttpsRedirection();
 
 app.UseCors("AllowAll");
 
+app.UseAuthentication();   // ✅ Måste ligga före Authorization
 app.UseAuthorization();
 
 app.MapControllers();

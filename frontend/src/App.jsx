@@ -12,34 +12,54 @@ import MovieCard from "./components/MovieCard";
 import "./index.css";
 import PersonDetails from "./pages/PersonDetails";
 import MovieDetails from "./pages/MovieDetails";
+import Login from "./pages/Login";
+import Profile from "./pages/Profile";
+import Register from "./pages/Register";
+import UserMenu from "./components/UserMenu";
+import Settings from "./pages/Settings";
+
+
+
 
 // ===============================
-// 🟡 HEADER (Titel + Sökfält)
+// 🟡 HEADER (Titel + User dropdown)
 // ===============================
 function Header({ onSearch, onClearSearch, searchRef }) {
   const navigate = useNavigate();
 
   const handleLogoClick = () => {
-    onClearSearch(); // rensar sökning och fält
-    navigate("/"); // till startsidan
+    onClearSearch();
+    navigate("/");
     window.scrollTo(0, 0);
   };
 
   return (
-    <header className="bg-slate-900 text-white py-6 text-center border-b border-slate-700">
-      <h1
-        className="text-5xl font-bold text-yellow-400 mb-4 cursor-pointer hover:text-yellow-300 transition"
-        onClick={handleLogoClick}
-      >
-        BINGE BOX
-      </h1>
+    <header className="bg-slate-900 text-white py-6 border-b border-slate-700 relative">
+      <div className="flex items-center justify-center relative">
+        <h1
+          className="text-5xl font-bold text-yellow-400 cursor-pointer hover:text-yellow-300 transition"
+          onClick={handleLogoClick}
+        >
+          BINGE BOX
+        </h1>
 
-      <div className="max-w-xl mx-auto">
-        <SearchBar ref={searchRef} onSearch={onSearch} onClearSearch={onClearSearch} />
+        {/* 👤 User Menu uppe till höger */}
+        <div className="absolute right-6 top-2">
+          <UserMenu />
+        </div>
+      </div>
+
+      <div className="max-w-xl mx-auto mt-4">
+        <SearchBar
+          ref={searchRef}
+          onSearch={onSearch}
+          onClearSearch={onClearSearch}
+        />
       </div>
     </header>
   );
 }
+
 
 // ===============================
 // 🧩 HUVUDSIDA
@@ -123,6 +143,7 @@ function HomePage({ movies, mode, query, category, onBack, loading }) {
     </main>
   );
 }
+
 
 // ===============================
 // 🚀 APP-INNEHÅLL
@@ -245,6 +266,12 @@ function AppContent() {
         <Route path="/movie/:id" element={<MovieDetails />} />
         <Route path="/tv/:id" element={<MovieDetails />} />
         <Route path="/person/:id" element={<PersonDetails />} />
+        <Route path="/login" element={<Login />} />
+<Route path="/profile" element={<Profile />} />
+<Route path="/register" element={<Register />} />
+<Route path="/settingss" element={<Settings />} />
+
+
       </Routes>
     </>
   );
