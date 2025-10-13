@@ -21,16 +21,19 @@ namespace BingeBox.Controllers
         public async Task<IActionResult> GetPopular([FromQuery] int page = 1)
         {
             var result = await _tmdb.GetPopularAsync(page);
-            var formatted = result.results.Select(m => new
-            {
-                id = m.id,
-                title = m.title ?? m.name,
-                overview = m.overview,
-                rating = m.vote_average,
-                releaseDate = m.release_date ?? m.first_air_date,
-                posterUrl = m.poster_path != null ? $"{_imageBase}w500{m.poster_path}" : null,
-                mediaType = m.title != null ? "movie" : "tv"
-            });
+            var formatted = result.results
+                .OrderByDescending(m => m.vote_average)
+                .ThenByDescending(m => m.release_date)
+                .Select(m => new
+                {
+                    id = m.id,
+                    title = m.title ?? m.name,
+                    overview = m.overview,
+                    rating = m.vote_average,
+                    releaseDate = m.release_date ?? m.first_air_date,
+                    posterUrl = m.poster_path != null ? $"{_imageBase}w500{m.poster_path}" : null,
+                    mediaType = m.title != null ? "movie" : "tv"
+                });
             return Ok(formatted);
         }
 
@@ -49,28 +52,29 @@ namespace BingeBox.Controllers
                 _ => await _tmdb.SearchMultiAsync(query, page)
             };
 
-            var formatted = result.results.Select(r => new
-            {
-                id = r.id,
-                title = r.title ?? r.name,
-                overview = r.overview ?? "",
-                rating = r.vote_average,
-                posterUrl = r.poster_path != null
-                    ? $"{_imageBase}w500{r.poster_path}"
-                    : (r.profile_path != null ? $"{_imageBase}w300{r.profile_path}" : null),
-                mediaType = !string.IsNullOrEmpty(r.media_type)
-                    ? r.media_type
-                    : (r.title != null ? "movie" : r.first_air_date != null ? "tv" : "person"),
-                knownFor = r.known_for?.Select(k => new
+            var formatted = result.results
+                .OrderByDescending(r => r.vote_average)
+                .ThenByDescending(r => r.release_date)
+                .Select(r => new
                 {
-                    id = k.id,
-                    title = k.title ?? k.name,
-                    mediaType = k.media_type,
-                    overview = k.overview,
-                    rating = k.vote_average,
-                    posterUrl = k.poster_path != null ? $"{_imageBase}w500{k.poster_path}" : null
-                })
-            });
+                    id = r.id,
+                    title = r.title ?? r.name,
+                    overview = r.overview ?? "",
+                    rating = r.vote_average,
+                    posterUrl = r.poster_path != null
+                        ? $"{_imageBase}w500{r.poster_path}"
+                        : (r.profile_path != null ? $"{_imageBase}w300{r.profile_path}" : null),
+                    mediaType = (r.title != null ? "movie" : r.first_air_date != null ? "tv" : "person"),
+                    knownFor = r.known_for?.Select(k => new
+                    {
+                        id = k.id,
+                        title = k.title ?? k.name,
+                        mediaType = k.media_type,
+                        overview = k.overview,
+                        rating = k.vote_average,
+                        posterUrl = k.poster_path != null ? $"{_imageBase}w500{k.poster_path}" : null
+                    })
+                });
 
             return Ok(formatted);
         }
@@ -119,7 +123,9 @@ namespace BingeBox.Controllers
             var cast = new List<object>();
             if (root.TryGetProperty("credits", out var credits))
             {
-                cast = credits.GetProperty("cast").EnumerateArray().Take(10)
+                cast = credits.GetProperty("cast").EnumerateArray()
+                    .OrderByDescending(c => c.TryGetProperty("popularity", out var pop) ? pop.GetDouble() : 0)
+                    .Take(10)
                     .Select(c => new
                     {
                         id = c.GetProperty("id").GetInt32(),
@@ -145,7 +151,7 @@ namespace BingeBox.Controllers
             });
         }
 
-        // 👤 PERSON-DETALJER
+        // 👤 Person-detaljer
         [HttpGet("person/{id}")]
         public async Task<IActionResult> GetPerson(int id)
         {
@@ -159,14 +165,14 @@ namespace BingeBox.Controllers
                 ? $"{_imageBase}w500{p.GetString()}"
                 : null;
 
-            // känd-för
             var knownFor = new List<object>();
             if (root.TryGetProperty("combined_credits", out var credits))
             {
                 knownFor = credits.GetProperty("cast").EnumerateArray()
                     .Where(c => c.TryGetProperty("poster_path", out _))
-                    .OrderByDescending(c => c.GetProperty("popularity").GetDouble())
-                    .Take(10)
+                    .OrderByDescending(c => c.TryGetProperty("vote_average", out var va) ? va.GetDouble() : 0)
+                    .ThenByDescending(c => c.TryGetProperty("popularity", out var pop) ? pop.GetDouble() : 0)
+                    .Take(12)
                     .Select(c => new
                     {
                         id = c.GetProperty("id").GetInt32(),

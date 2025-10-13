@@ -39,7 +39,6 @@ export default function PersonDetails() {
 
   return (
     <div className="min-h-screen bg-slate-900 text-white p-6">
-      {/* Tillbaka-knapp */}
       <button
         onClick={() => navigate(-1)}
         className="mb-6 bg-slate-700 hover:bg-slate-600 text-white py-2 px-4 rounded"
@@ -47,9 +46,7 @@ export default function PersonDetails() {
         ← Tillbaka
       </button>
 
-      {/* Huvudinnehåll */}
       <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-10">
-        {/* Profilbild */}
         {person.profile ? (
           <img
             src={person.profile}
@@ -62,7 +59,6 @@ export default function PersonDetails() {
           </div>
         )}
 
-        {/* Info */}
         <div className="flex-1">
           <h1 className="text-4xl font-extrabold text-yellow-400 mb-4">
             {person.name}
@@ -83,7 +79,6 @@ export default function PersonDetails() {
         </div>
       </div>
 
-      {/* Känd för */}
       {person.knownFor?.length > 0 && (
         <>
           <h2 className="text-2xl font-semibold text-yellow-400 mt-12 mb-4 text-center md:text-left">
@@ -95,7 +90,9 @@ export default function PersonDetails() {
               <div
                 key={i}
                 onClick={() =>
-                  navigate(`/details/${m.mediaType || "movie"}/${m.id}`)
+                  navigate(`/${m.mediaType || "movie"}/${m.id}`, {
+                    state: { mediaType: m.mediaType || "movie" },
+                  })
                 }
                 className="bg-slate-800 rounded-xl overflow-hidden hover:scale-105 hover:shadow-lg transition-transform duration-200 cursor-pointer"
               >
