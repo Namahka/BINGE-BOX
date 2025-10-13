@@ -17,6 +17,9 @@ import Profile from "./pages/Profile";
 import Register from "./pages/Register";
 import UserMenu from "./components/UserMenu";
 import Settings from "./pages/Settings";
+import { Star } from "lucide-react";
+import Favorites from "./pages/Favorites";
+
 
 
 
@@ -43,18 +46,18 @@ function Header({ onSearch, onClearSearch, searchRef }) {
           BINGE BOX
         </h1>
 
-        {/* 👤 User Menu uppe till höger */}
-        <div className="absolute right-6 top-2">
+        {/* ⭐ & 👤 */}
+        <div className="absolute right-6 top-2 flex gap-4 items-center">
+          <Star
+            className="w-6 h-6 text-yellow-400 cursor-pointer hover:scale-110 transition-transform"
+            onClick={() => navigate("/favorites")}
+          />
           <UserMenu />
         </div>
       </div>
 
       <div className="max-w-xl mx-auto mt-4">
-        <SearchBar
-          ref={searchRef}
-          onSearch={onSearch}
-          onClearSearch={onClearSearch}
-        />
+        <SearchBar ref={searchRef} onSearch={onSearch} onClearSearch={onClearSearch} />
       </div>
     </header>
   );
@@ -269,7 +272,8 @@ function AppContent() {
         <Route path="/login" element={<Login />} />
 <Route path="/profile" element={<Profile />} />
 <Route path="/register" element={<Register />} />
-<Route path="/settingss" element={<Settings />} />
+<Route path="/settings" element={<Settings />} />
+<Route path="/favorites" element={<Favorites/>}/>
 
 
       </Routes>

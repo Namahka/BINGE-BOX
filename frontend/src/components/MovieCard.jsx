@@ -1,6 +1,21 @@
 import { genreMap } from "../utils/genreMap.js";
+import { useFavorites } from "../context/FavoritesContext.jsx";
+import { Star } from "lucide-react";
+import { useState } from "react";
 
 export default function MovieCard({ movie }) {
+  const { favorites, toggleFavorite } = useFavorites();
+  const [animating, setAnimating] = useState(false);
+
+  const isFavorite = favorites.some((f) => f.id === movie.id);
+
+  const handleFavoriteClick = (e) => {
+    e.stopPropagation(); // förhindrar navigation
+    toggleFavorite(movie);
+    setAnimating(true);
+    setTimeout(() => setAnimating(false), 300);
+  };
+
   const genreText =
     Array.isArray(movie.genre_ids) && movie.genre_ids.length > 0
       ? movie.genre_ids
@@ -12,7 +27,23 @@ export default function MovieCard({ movie }) {
       : movie.genre || "Okänd genre";
 
   return (
-    <div className="bg-slate-800 rounded-2xl overflow-hidden shadow-md hover:shadow-lg transition-transform hover:scale-[1.03] duration-200 flex flex-col h-[500px]">
+    <div className="relative bg-slate-800 rounded-2xl overflow-hidden shadow-md hover:shadow-lg transition-transform hover:scale-[1.03] duration-200 flex flex-col h-[500px]">
+      {/* ⭐ Favoritknapp (konturstjärna som fylls vid klick) */}
+      <button
+        onClick={handleFavoriteClick}
+        className={`absolute right-3 top-3 transition-transform ${
+          animating ? "scale-110" : "scale-100"
+        }`}
+      >
+        <Star
+          className={`w-6 h-6 transition-all duration-200 ${
+            isFavorite
+              ? "fill-yellow-400 text-yellow-400"
+              : "text-gray-400 hover:text-yellow-300"
+          }`}
+        />
+      </button>
+
       <div className="w-full h-[280px] bg-slate-900 flex items-center justify-center">
         {movie.posterUrl || movie.poster ? (
           <img
