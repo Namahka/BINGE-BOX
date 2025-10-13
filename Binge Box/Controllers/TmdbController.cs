@@ -16,6 +16,18 @@ namespace BingeBox.Controllers
             _tmdb = tmdb;
         }
 
+        // 🎭 Genre-map för TMDb ID:n
+        private static readonly Dictionary<int, string> GenreMap = new()
+        {
+            { 28, "Action" }, { 12, "Adventure" }, { 16, "Animation" },
+            { 35, "Comedy" }, { 80, "Crime" }, { 99, "Documentary" },
+            { 18, "Drama" }, { 10751, "Family" }, { 14, "Fantasy" },
+            { 36, "History" }, { 27, "Horror" }, { 10402, "Music" },
+            { 9648, "Mystery" }, { 10749, "Romance" }, { 878, "Sci-Fi" },
+            { 10770, "TV Movie" }, { 53, "Thriller" }, { 10752, "War" },
+            { 37, "Western" }
+        };
+
         // 🔥 Populära filmer
         [HttpGet("popular")]
         public async Task<IActionResult> GetPopular([FromQuery] int page = 1)
@@ -32,12 +44,15 @@ namespace BingeBox.Controllers
                     rating = m.vote_average,
                     releaseDate = m.release_date ?? m.first_air_date,
                     posterUrl = m.poster_path != null ? $"{_imageBase}w500{m.poster_path}" : null,
+                    genre = m.genre_ids != null && m.genre_ids.Count > 0
+                        ? string.Join(", ", m.genre_ids.Select(id => GenreMap.ContainsKey(id) ? GenreMap[id] : "Okänd"))
+                        : "Okänd genre",
                     mediaType = m.title != null ? "movie" : "tv"
                 });
             return Ok(formatted);
         }
 
-        // 🔍 Dynamisk sökning
+        // 🔍 Dynamisk sökning (filmer, serier, personer)
         [HttpGet("search/{category}")]
         public async Task<IActionResult> Search(string category, [FromQuery] string query, [FromQuery] int page = 1)
         {
@@ -64,6 +79,9 @@ namespace BingeBox.Controllers
                     posterUrl = r.poster_path != null
                         ? $"{_imageBase}w500{r.poster_path}"
                         : (r.profile_path != null ? $"{_imageBase}w300{r.profile_path}" : null),
+                    genre = r.genre_ids != null && r.genre_ids.Count > 0
+                        ? string.Join(", ", r.genre_ids.Select(id => GenreMap.ContainsKey(id) ? GenreMap[id] : "Okänd"))
+                        : "Okänd genre",
                     mediaType = (r.title != null ? "movie" : r.first_air_date != null ? "tv" : "person"),
                     knownFor = r.known_for?.Select(k => new
                     {
@@ -79,7 +97,7 @@ namespace BingeBox.Controllers
             return Ok(formatted);
         }
 
-        // 🎬 Film eller serie-detaljer
+        // 🎬 Detaljer för film/serie
         [HttpGet("details/{type}/{id}")]
         public async Task<IActionResult> GetDetails(string type, int id)
         {
@@ -105,6 +123,18 @@ namespace BingeBox.Controllers
                 ? r1.GetString()
                 : (root.TryGetProperty("first_air_date", out var r2) ? r2.GetString() : null);
             double rating = root.TryGetProperty("vote_average", out var ra) ? ra.GetDouble() : 0;
+
+            // 🎞️ Genrelistan
+            string genreText = "Okänd genre";
+            if (root.TryGetProperty("genres", out var genreArray) && genreArray.ValueKind == JsonValueKind.Array)
+            {
+                var genres = genreArray.EnumerateArray()
+                    .Select(g => g.GetProperty("name").GetString())
+                    .Where(g => !string.IsNullOrEmpty(g))
+                    .ToList();
+                if (genres.Any())
+                    genreText = string.Join(", ", genres);
+            }
 
             string? trailer = null;
             if (root.TryGetProperty("videos", out var vids))
@@ -145,6 +175,7 @@ namespace BingeBox.Controllers
                 overview,
                 rating,
                 releaseDate,
+                genre = genreText,
                 posterUrl = poster,
                 trailer,
                 cast
