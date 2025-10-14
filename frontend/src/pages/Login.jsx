@@ -34,17 +34,17 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">
+    <div className="min-h-screen flex items-center justify-center bg-black text-white">
       <form
         onSubmit={handleSubmit}
-        className="bg-slate-800 p-8 rounded-2xl shadow-md w-[320px]"
+        className="bg-white p-8 rounded-2xl shadow-md w-[320px]"
       >
-        <h1 className="text-2xl font-bold mb-4 text-center text-yellow-400">
+        <h1 className="text-2xl font-bold mb-4 text-center text-black">
           Logga in
         </h1>
 
         <input
-          className="w-full mb-3 p-2 rounded bg-slate-700 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+          className="w-full mb-3 p-2 rounded bg-black border border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
           placeholder="E-post eller användarnamn"
           value={identifier}
           onChange={(e) => setIdentifier(e.target.value)}
@@ -52,7 +52,7 @@ export default function Login() {
 
         <input
           type="password"
-          className="w-full mb-3 p-2 rounded bg-slate-700 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+          className="w-full mb-3 p-2 rounded bg-black border border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
           placeholder="Lösenord"
           value={password}
           onChange={(e) => setPassword(e.target.value)}

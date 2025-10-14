@@ -7,7 +7,7 @@ export default function Register() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [profileImageUrl, setProfileImageUrl] = useState("");
+
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const navigate = useNavigate();
@@ -22,7 +22,7 @@ export default function Register() {
         username,
         email,
         password,
-        profileImageUrl,
+
       });
 
       setSuccess("Konto skapat! Du kan nu logga in.");
@@ -34,15 +34,15 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">
+    <div className="min-h-screen flex items-center justify-center bg-black text-white">
       <form
         onSubmit={handleSubmit}
-        className="bg-gray-800 p-8 rounded-xl shadow-md w-[320px]"
+        className="bg-white p-8 rounded-xl shadow-md w-[320px]"
       >
-        <h1 className="text-2xl font-bold mb-4 text-center">Skapa konto</h1>
+        <h1 className="text-2xl font-bold mb-4 text-center text-black">Skapa konto</h1>
 
         <input
-          className="w-full mb-3 p-2 rounded bg-gray-700 border border-gray-600"
+          className="w-full mb-3 p-2 rounded bg-black border border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
           placeholder="Användarnamn"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
@@ -50,7 +50,7 @@ export default function Register() {
         />
         <input
           type="email"
-          className="w-full mb-3 p-2 rounded bg-gray-700 border border-gray-600"
+          className="w-full mb-3 p-2 rounded bg-black border border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
           placeholder="E-post"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -58,18 +58,11 @@ export default function Register() {
         />
         <input
           type="password"
-          className="w-full mb-3 p-2 rounded bg-gray-700 border border-gray-600"
+          className= "w-full mb-3 p-2 rounded bg-black border border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
           placeholder="Lösenord"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
-        />
-        <input
-          type="text"
-          className="w-full mb-3 p-2 rounded bg-gray-700 border border-gray-600"
-          placeholder="Profilbild (valfritt URL)"
-          value={profileImageUrl}
-          onChange={(e) => setProfileImageUrl(e.target.value)}
         />
 
         {error && <p className="text-red-400 text-sm mb-2">{error}</p>}

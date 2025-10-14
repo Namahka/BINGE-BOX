@@ -24,18 +24,18 @@ export default function UserMenu() {
     <div className="relative" ref={menuRef}>
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center justify-center p-2 rounded-full hover:bg-slate-700 transition"
+        className="flex items-center justify-center p-2 rounded-full hover:bg-yellow-400 transition"
       >
-        <User className="w-6 h-6 text-yellow-400" />
+        <User className="w-6 h-6 text-yellow-400 hover:text-black transition " />
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-48 bg-slate-800 text-white rounded-lg shadow-lg border border-slate-700 z-50">
+        <div className="absolute right-0 mt-2 w-48 bg-white text-black rounded-lg shadow-lg border border-yellow-400 z-50">
           {loading ? (
             <p className="px-4 py-2 text-gray-400 text-sm">Kontrollerar...</p>
           ) : user ? (
             <>
-              <p className="px-4 py-2 text-sm text-gray-300 border-b border-slate-700">
+              <p className="px-4 py-2 text-sm text-gray-300 border-b border-white">
                 Inloggad som{" "}
                 <span className="text-yellow-400">{user.username}</span>
               </p>
@@ -75,7 +75,7 @@ export default function UserMenu() {
                   navigate("/login");
                   setOpen(false);
                 }}
-                className="w-full text-left px-4 py-2 hover:bg-slate-700 transition"
+                className="w-full text-left px-4 py-2 hover:bg-yellow-400 transition hover:text-black transition"
               >
                 Logga in
               </button>
@@ -84,7 +84,7 @@ export default function UserMenu() {
                   navigate("/register");
                   setOpen(false);
                 }}
-                className="w-full text-left px-4 py-2 hover:bg-slate-700 border-t border-slate-700 transition"
+                className="w-full text-left px-4 py-2 hover:bg-yellow-400 transition hover:text-black transition"
               >
                 Skapa konto
               </button>

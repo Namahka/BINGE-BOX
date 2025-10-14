@@ -109,6 +109,9 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+// 🖼️ LÅT PROFILBILDER OCH UPPLADDADE FILER VISAS
+app.UseStaticFiles();
+
 app.UseCors("AllowAll");
 
 app.UseAuthentication();

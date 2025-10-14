@@ -64,37 +64,37 @@ export default function Profile() {
 
   if (!user)
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">
+      <div className="min-h-screen bg-yellow-400 flex items-center justify-center text-white">
         Du måste vara inloggad.
       </div>
     );
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white p-6 relative">
+    <div className="min-h-screen bg-yellow-400 text-black p-6 relative">
       {/* 👤 Profilhuvud */}
       <div className="flex flex-col md:flex-row items-center gap-6 mb-8">
         <img
           src={previewImage || "/default-avatar.png"}
           alt="Profilbild"
-          className="w-32 h-32 rounded-full object-cover border-4 border-yellow-400"
+          className="w-32 h-32 rounded-full object-cover border-4 border-black"
         />
         <div className="flex-1">
           <h1 className="text-3xl font-bold text-yellow-400">{user.username}</h1>
-          <p className="text-slate-300 mt-2 max-w-xl">
+          <p className="text-black mt-2 max-w-xl">
             {bio || "Ingen beskrivning än. Lägg till något om dig själv!"}
           </p>
         </div>
 
         <button
           onClick={() => setIsEditing(true)}
-          className="absolute top-6 right-6 bg-yellow-500 hover:bg-yellow-400 text-black font-semibold px-4 py-2 rounded shadow"
+          className="absolute top-6 right-6 bg-black hover:bg-white text-yellow-400 font-semibold px-4 py-2 rounded shadow"
         >
           Redigera profil
         </button>
       </div>
 
       {/* 🔖 Flikar */}
-      <div className="flex gap-4 border-b border-slate-700 mb-6">
+      <div className="flex gap-4 border-b border-black mb-6">
         {[
           { key: "about", label: "Om mig" },
           { key: "favorites", label: "Mina favoriter" },
@@ -105,8 +105,8 @@ export default function Profile() {
             onClick={() => setActiveTab(tab.key)}
             className={`pb-2 px-3 font-semibold ${
               activeTab === tab.key
-                ? "text-yellow-400 border-b-2 border-yellow-400"
-                : "text-slate-400 hover:text-yellow-300"
+                ? "text-black border-b-2 border-black"
+                : "text-slate-700 hover:text-black"
             }`}
           >
             {tab.label}
@@ -118,15 +118,15 @@ export default function Profile() {
       {activeTab === "about" && (
         <section>
           <h2 className="text-xl font-bold text-yellow-400 mb-3">Om mig</h2>
-          <p className="text-slate-300">{bio || "Ingen bio ännu."}</p>
+          <p className="text-black">{bio || "Ingen bio ännu."}</p>
         </section>
       )}
 
       {activeTab === "favorites" && (
         <section>
-          <h2 className="text-xl font-bold text-yellow-400 mb-4">Mina favoriter</h2>
+          <h2 className="text-xl font-bold text-black mb-4">Mina favoriter</h2>
           {favorites.length === 0 ? (
-            <p className="text-gray-400">Inga favoriter ännu.</p>
+            <p className="text-black">Inga favoriter ännu.</p>
           ) : (
             <div className="grid gap-6 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
               {favorites.map((m) => (
@@ -150,7 +150,7 @@ export default function Profile() {
       {activeTab === "reviews" && (
         <section>
           <h2 className="text-xl font-bold text-yellow-400 mb-4">Mina reviews</h2>
-          <p className="text-slate-400 italic">
+          <p className="text-black italic">
             (Kommer snart – här kommer du kunna skriva recensioner och sätta betyg.)
           </p>
         </section>
@@ -162,7 +162,7 @@ export default function Profile() {
           <div className="bg-slate-800 p-6 rounded-2xl w-[90%] max-w-lg relative">
             <button
               onClick={() => setIsEditing(false)}
-              className="absolute top-3 right-3 text-slate-400 hover:text-white text-xl"
+              className="absolute top-3 right-3 text-wh hover:text-white text-xl"
             >
               ✕
             </button>

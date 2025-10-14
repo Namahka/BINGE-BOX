@@ -37,7 +37,7 @@ function Header({ onSearch, onClearSearch, searchRef }) {
   };
 
   return (
-    <header className="bg-indigo-950 text-white py-6 border-b border-black relative">
+    <header className="bg-black text-white py-6 border-b border-yellow-400 relative">
       <div className="flex items-center justify-center relative">
         <h1
           className="text-5xl font-bold text-yellow-400 cursor-pointer hover:text-yellow-300 transition"
@@ -84,7 +84,7 @@ function HomePage({ movies, mode, query, category, onBack, loading }) {
   };
 
   return (
-    <main className="min-h-screen bg-violet-950 text-white px-4 py-8 relative">
+    <main className="min-h-screen bg-black text-white px-4 py-8 relative">
       {mode === "search" && (
         <>
           <p className="mt-4 text-center text-gray-300">
