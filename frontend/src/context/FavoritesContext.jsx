@@ -1,43 +1,78 @@
 import { createContext, useContext, useState, useEffect } from "react";
+import { getFavorites, toggleFavorite } from "../api";
 
 const FavoritesContext = createContext();
 
 export function FavoritesProvider({ children }) {
   const [favorites, setFavorites] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // 🟢 Ladda favoriter från localStorage vid start
+  // 🟢 Ladda favoriter från servern när token ändras (inloggning / utloggning)
   useEffect(() => {
-    const saved = localStorage.getItem("favorites");
-    if (saved) {
-      setFavorites(JSON.parse(saved));
-    }
+    const loadFavorites = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setFavorites([]);
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const data = await getFavorites();
+        setFavorites(data || []);
+      } catch (err) {
+        console.error("⚠️ Kunde inte hämta favoriter:", err);
+        setFavorites([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadFavorites();
+
+    // 🔁 Ladda om när användaren loggar in / ut
+    window.addEventListener("storage", loadFavorites);
+    return () => window.removeEventListener("storage", loadFavorites);
   }, []);
 
-  // 💾 Spara favoriter när något ändras
-  useEffect(() => {
-    localStorage.setItem("favorites", JSON.stringify(favorites));
-  }, [favorites]);
+  // 🔁 Lägg till / ta bort film i backend + uppdatera state direkt
+  const handleToggleFavorite = async (movie) => {
+    try {
+      const result = await toggleFavorite(movie);
 
-  // 🔁 Lägg till / ta bort film
-  const toggleFavorite = (movie) => {
-    setFavorites((prev) => {
-      const exists = prev.some((f) => f.id === movie.id);
-      if (exists) {
-        return prev.filter((f) => f.id !== movie.id);
-      } else {
-        return [...prev, movie];
-      }
-    });
+      setFavorites((prev) => {
+        const exists = prev.some((f) => f.movieId === movie.id);
+        if (exists) {
+          return prev.filter((f) => f.movieId !== movie.id);
+        } else {
+          return [
+            ...prev,
+            {
+              movieId: movie.id,
+              title: movie.title,
+              posterUrl: movie.posterUrl,
+              rating: movie.rating,
+              genre: movie.genre || "Okänd genre",
+            },
+          ];
+        }
+      });
+
+      return result;
+    } catch (err) {
+      console.error("⚠️ Kunde inte toggla favorit:", err);
+    }
   };
 
   return (
-    <FavoritesContext.Provider value={{ favorites, toggleFavorite }}>
+    <FavoritesContext.Provider
+      value={{ favorites, toggleFavorite: handleToggleFavorite, loading }}
+    >
       {children}
     </FavoritesContext.Provider>
   );
 }
 
-// 🧩 Hook som används överallt (MovieCard, Favorites-sida)
 export function useFavorites() {
   return useContext(FavoritesContext);
 }

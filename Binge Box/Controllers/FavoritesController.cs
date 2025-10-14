@@ -19,7 +19,7 @@ namespace BingeBox.Controllers
             _context = context;
         }
 
-        // 🟡 TOGGLE – lägg till eller ta bort favorit
+        // 🟡 TOGGLE – lägg till eller ta bort favorit (endast en unik per film)
         [HttpPost("toggle")]
         public async Task<IActionResult> ToggleFavorite([FromBody] FavoriteRequest req)
         {
@@ -35,16 +35,24 @@ namespace BingeBox.Controllers
                 if (!int.TryParse(userIdClaim, out int userId))
                     return Unauthorized("Ogiltigt användar-ID i token");
 
+                // 🔍 Kolla om filmen redan finns som favorit
                 var existing = await _context.Favorites
                     .FirstOrDefaultAsync(f => f.MovieId == req.MovieId && f.UserId == userId);
 
                 if (existing != null)
                 {
+                    // 🗑️ Ta bort den
                     _context.Favorites.Remove(existing);
                     await _context.SaveChangesAsync();
-                    return Ok(new { message = "❌ Borttagen från favoriter" });
+
+                    return Ok(new
+                    {
+                        message = "❌ Borttagen från favoriter",
+                        removed = true
+                    });
                 }
 
+                // ➕ Annars lägg till ny favorit
                 var fav = new Favorite
                 {
                     UserId = userId,
@@ -52,13 +60,17 @@ namespace BingeBox.Controllers
                     Title = req.Title ?? "",
                     PosterUrl = req.PosterUrl,
                     Rating = req.Rating,
-                    Genre = req.Genre
+                    Genre = req.Genre ?? "Okänd genre"
                 };
 
                 _context.Favorites.Add(fav);
                 await _context.SaveChangesAsync();
 
-                return Ok(new { message = "⭐ Tillagd i favoriter" });
+                return Ok(new
+                {
+                    message = "⭐ Tillagd i favoriter",
+                    removed = false
+                });
             }
             catch (Exception ex)
             {
@@ -67,7 +79,7 @@ namespace BingeBox.Controllers
             }
         }
 
-        // 🟢 Hämta alla favoriter för inloggad användare
+        // 🟢 GET – hämta alla favoriter för inloggad användare
         [HttpGet]
         public async Task<IActionResult> GetFavorites()
         {
@@ -103,7 +115,7 @@ namespace BingeBox.Controllers
         }
     }
 
-    // 📦 DTO för POST-data
+    // 📦 DTO för inkommande favoritdata
     public class FavoriteRequest
     {
         public int MovieId { get; set; }

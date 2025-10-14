@@ -115,8 +115,10 @@ export async function toggleFavorite(movie) {
     throw new Error("Misslyckades uppdatera favoriter");
   }
 
+  // 👇 Returnera info om den togs bort eller lades till
   return await res.json();
 }
+
 
 // ===============================
 // 💾 Hämtar sparade favoriter

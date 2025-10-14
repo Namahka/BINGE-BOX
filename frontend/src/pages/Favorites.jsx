@@ -1,36 +1,16 @@
-import { useEffect, useState } from "react";
-import { getFavorites } from "../api"; // 👈 den nya API-funktionen
+import { useFavorites } from "../context/FavoritesContext";
 import MovieCard from "../components/MovieCard";
 
 export default function Favorites() {
-  const [favorites, setFavorites] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { favorites, loading } = useFavorites();
 
-  useEffect(() => {
-    async function loadFavorites() {
-      try {
-        setLoading(true);
-        const data = await getFavorites();
-        setFavorites(data);
-      } catch (err) {
-        console.error("⚠️ Fel vid hämtning av favoriter:", err);
-        setError("Kunde inte hämta favoriter – är du inloggad?");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadFavorites();
-  }, []);
-
-  if (loading)
+  if (loading) {
     return (
-      <p className="text-center text-yellow-400 mt-10">Laddar favoriter...</p>
+      <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin"></div>
+      </div>
     );
-
-  if (error)
-    return <p className="text-center text-red-400 mt-10">{error}</p>;
+  }
 
   return (
     <div className="min-h-screen bg-slate-900 text-white p-6">
@@ -43,7 +23,16 @@ export default function Favorites() {
       ) : (
         <div className="grid gap-6 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {favorites.map((m) => (
-            <MovieCard key={m.movieId} movie={m} />
+            <MovieCard
+              key={m.movieId}
+              movie={{
+                id: m.movieId,
+                title: m.title,
+                posterUrl: m.posterUrl,
+                rating: m.rating,
+                genre: m.genre,
+              }}
+            />
           ))}
         </div>
       )}

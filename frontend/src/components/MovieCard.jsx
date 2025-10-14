@@ -1,14 +1,15 @@
+import { useFavorites } from "../context/FavoritesContext";
 import { useState } from "react";
-import { toggleFavorite } from "../api";
-
 import { Star } from "lucide-react";
 
 export default function MovieCard({ movie }) {
-  const [isFavorite, setIsFavorite] = useState(false);
+  const { favorites, toggleFavorite } = useFavorites();
   const [showPopup, setShowPopup] = useState(false);
 
+  const isFavorite = favorites.some((f) => f.movieId === movie.id);
+
   const handleFavoriteClick = async (e) => {
-    e.stopPropagation(); // 🧱 stoppar klicket från att trigga navigation
+    e.stopPropagation();
 
     const token = localStorage.getItem("token");
     if (!token) {
@@ -16,30 +17,27 @@ export default function MovieCard({ movie }) {
       return;
     }
 
-    console.log("⭐ Klick på favorit:", movie); // 👈 detta ska synas i konsolen
-
-    try {
-      await toggleFavorite(movie);
-      setIsFavorite((prev) => !prev);
-
-      // 🔥 liten animation
-      const el = document.getElementById(`fav-${movie.id}`);
-      if (el) {
-        el.classList.add("scale-125");
-        setTimeout(() => el.classList.remove("scale-125"), 200);
-      }
-    } catch (err) {
-      console.error("❌ Fel vid favorit:", err);
+    const el = document.getElementById(`fav-${movie.id}`);
+    if (el) {
+      el.classList.add("scale-125");
+      setTimeout(() => el.classList.remove("scale-125"), 200);
     }
+
+    await toggleFavorite(movie);
   };
 
   return (
-    <div className="relative bg-slate-800 rounded-2xl overflow-hidden shadow-md hover:shadow-lg transition-transform hover:scale-[1.03] duration-200 flex flex-col h-[500px]">
+    <div
+      className="bg-slate-800 rounded-2xl overflow-hidden shadow-md hover:shadow-lg transition-transform hover:scale-[1.03] duration-200 flex flex-col h-[500px] relative"
+      onClick={(e) => {
+        if (e.target.tagName === "BUTTON") return;
+      }}
+    >
       {/* ⭐ FAVORIT-IKON */}
       <button
         id={`fav-${movie.id}`}
         onClick={handleFavoriteClick}
-        className={`absolute top-3 right-3 p-2 rounded-full transition-transform z-10 ${
+        className={`absolute top-3 right-3 p-2 rounded-full transition-transform ${
           isFavorite ? "text-yellow-400" : "text-gray-400 hover:text-yellow-300"
         }`}
       >
@@ -84,7 +82,7 @@ export default function MovieCard({ movie }) {
         </p>
       </div>
 
-      {/* 🔒 Popup för icke inloggade */}
+      {/* 🔒 Popup */}
       {showPopup && (
         <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white rounded-2xl">
           <p className="mb-3">Du måste vara inloggad för att spara favoriter</p>

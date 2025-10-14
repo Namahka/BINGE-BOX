@@ -1,33 +1,15 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { getProfile } from "../api";
-import { User } from "lucide-react"; // om du har lucide-react installerat
+import { User } from "lucide-react";
+import { useAuth } from "../context/AuthContext.jsx";
 
 export default function UserMenu() {
+  const { user, logout, loading } = useAuth();
   const [open, setOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [username, setUsername] = useState("");
-  const menuRef = useRef(null);
   const navigate = useNavigate();
+  const menuRef = useRef(null);
 
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
-    // Kolla om användaren är inloggad
-    const fetchUser = async () => {
-      try {
-        const data = await getProfile();
-        setUsername(data.username);
-        setIsLoggedIn(true);
-      } catch {
-        setIsLoggedIn(false);
-      }
-    };
-    fetchUser();
-  }, []);
-
-  // Stäng dropdown om man klickar utanför
+  // Klick utanför = stäng
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
@@ -38,37 +20,31 @@ export default function UserMenu() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    setIsLoggedIn(false);
-    setUsername("");
-    navigate("/");
-  };
-
   return (
-    <div className="relative inline-block text-left" ref={menuRef}>
-      {/* 👤 Knapp */}
+    <div className="relative" ref={menuRef}>
       <button
         onClick={() => setOpen(!open)}
-        className="p-2 rounded-full hover:bg-slate-800 transition"
+        className="flex items-center justify-center p-2 rounded-full hover:bg-slate-700 transition"
       >
-        <User size={28} className="text-yellow-400" />
+        <User className="w-6 h-6 text-yellow-400" />
       </button>
 
-      {/* ▼ Dropdown */}
       {open && (
-        <div className="absolute right-0 mt-2 w-48 bg-gray-800 text-white rounded-lg shadow-lg border border-gray-700 z-50">
-          {isLoggedIn ? (
+        <div className="absolute right-0 mt-2 w-48 bg-slate-800 text-white rounded-lg shadow-lg border border-slate-700 z-50">
+          {loading ? (
+            <p className="px-4 py-2 text-gray-400 text-sm">Kontrollerar...</p>
+          ) : user ? (
             <>
-              <div className="px-4 py-2 border-b border-gray-700 text-sm text-yellow-400">
-                {username}
-              </div>
+              <p className="px-4 py-2 text-sm text-gray-300 border-b border-slate-700">
+                Inloggad som{" "}
+                <span className="text-yellow-400">{user.username}</span>
+              </p>
               <button
                 onClick={() => {
                   navigate("/profile");
                   setOpen(false);
                 }}
-                className="w-full text-left px-4 py-2 hover:bg-gray-700"
+                className="w-full text-left px-4 py-2 hover:bg-slate-700 transition"
               >
                 Min sida
               </button>
@@ -77,16 +53,17 @@ export default function UserMenu() {
                   navigate("/settings");
                   setOpen(false);
                 }}
-                className="w-full text-left px-4 py-2 hover:bg-gray-700"
+                className="w-full text-left px-4 py-2 hover:bg-slate-700 transition"
               >
                 Inställningar
               </button>
               <button
                 onClick={() => {
-                  handleLogout();
+                  logout();
                   setOpen(false);
+                  navigate("/");
                 }}
-                className="w-full text-left px-4 py-2 text-red-400 hover:bg-gray-700"
+                className="w-full text-left px-4 py-2 hover:bg-red-600 text-red-300 hover:text-white border-t border-slate-700 transition"
               >
                 Logga ut
               </button>
@@ -98,7 +75,7 @@ export default function UserMenu() {
                   navigate("/login");
                   setOpen(false);
                 }}
-                className="w-full text-left px-4 py-2 hover:bg-gray-700"
+                className="w-full text-left px-4 py-2 hover:bg-slate-700 transition"
               >
                 Logga in
               </button>
@@ -107,7 +84,7 @@ export default function UserMenu() {
                   navigate("/register");
                   setOpen(false);
                 }}
-                className="w-full text-left px-4 py-2 hover:bg-gray-700"
+                className="w-full text-left px-4 py-2 hover:bg-slate-700 border-t border-slate-700 transition"
               >
                 Skapa konto
               </button>
