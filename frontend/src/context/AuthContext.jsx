@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { getProfile } from "../api";
 
-// Skapa context
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
@@ -27,16 +26,22 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false));
   }, []);
 
-  // ✅ Funktion som anropas vid lyckad login
+  // ✅ Vid login
   const login = (token, userData) => {
     localStorage.setItem("token", token);
     setUser(userData);
+
+    // 🔁 trigga global event (för FavoritesContext)
+    window.dispatchEvent(new Event("authChange"));
   };
 
-  // ✅ Funktion som anropas vid logout
+  // ✅ Vid logout
   const logout = () => {
     localStorage.removeItem("token");
     setUser(null);
+
+    // 🔁 trigga global event (för FavoritesContext)
+    window.dispatchEvent(new Event("authChange"));
   };
 
   return (
@@ -46,7 +51,6 @@ export function AuthProvider({ children }) {
   );
 }
 
-// ✅ Hook för att använda context i andra komponenter
 export function useAuth() {
   return useContext(AuthContext);
 }

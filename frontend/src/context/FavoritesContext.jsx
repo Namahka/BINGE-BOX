@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { getFavorites, toggleFavorite } from "../api";
 
 const FavoritesContext = createContext();
@@ -7,35 +7,37 @@ export function FavoritesProvider({ children }) {
   const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 🟢 Ladda favoriter från servern när token ändras (inloggning / utloggning)
+  // 🧠 Ladda favoriter när användaren loggar in / ut
+  const loadFavorites = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setFavorites([]);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const data = await getFavorites();
+      setFavorites(data || []);
+    } catch (err) {
+      console.error("⚠️ Kunde inte hämta favoriter:", err);
+      setFavorites([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 🔁 Körs vid mount + varje gång authChange triggas
   useEffect(() => {
-    const loadFavorites = async () => {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        setFavorites([]);
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const data = await getFavorites();
-        setFavorites(data || []);
-      } catch (err) {
-        console.error("⚠️ Kunde inte hämta favoriter:", err);
-        setFavorites([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     loadFavorites();
 
-    // 🔁 Ladda om när användaren loggar in / ut
-    window.addEventListener("storage", loadFavorites);
-    return () => window.removeEventListener("storage", loadFavorites);
+    // lyssna på login/logout-event
+    window.addEventListener("authChange", loadFavorites);
+    return () => window.removeEventListener("authChange", loadFavorites);
   }, []);
 
-  // 🔁 Lägg till / ta bort film i backend + uppdatera state direkt
+  // 🟡 Lägg till / ta bort favorit
   const handleToggleFavorite = async (movie) => {
     try {
       const result = await toggleFavorite(movie);
