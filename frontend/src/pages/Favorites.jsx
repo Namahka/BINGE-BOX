@@ -31,6 +31,7 @@ export default function Favorites() {
                 posterUrl: m.posterUrl,
                 rating: m.rating,
                 genre: m.genre,
+                overview: m.overview, // 👈 läggs till här!
               }}
             />
           ))}

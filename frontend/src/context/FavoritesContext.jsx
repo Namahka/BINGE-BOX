@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useState, useEffect } from "react";
 import { getFavorites, toggleFavorite } from "../api";
 
 const FavoritesContext = createContext();
@@ -7,7 +7,7 @@ export function FavoritesProvider({ children }) {
   const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 🧠 Ladda favoriter när användaren loggar in / ut
+  // 🔄 Ladda favoriter baserat på token (per användare)
   const loadFavorites = async () => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -28,16 +28,22 @@ export function FavoritesProvider({ children }) {
     }
   };
 
-  // 🔁 Körs vid mount + varje gång authChange triggas
+  // 🧠 Körs vid start + när token ändras (login/logout)
   useEffect(() => {
     loadFavorites();
 
-    // lyssna på login/logout-event
-    window.addEventListener("authChange", loadFavorites);
-    return () => window.removeEventListener("authChange", loadFavorites);
+    // 🟡 Lyssna på förändringar i localStorage (t.ex. login/logout)
+    const onStorageChange = (e) => {
+      if (e.key === "token") {
+        loadFavorites();
+      }
+    };
+
+    window.addEventListener("storage", onStorageChange);
+    return () => window.removeEventListener("storage", onStorageChange);
   }, []);
 
-  // 🟡 Lägg till / ta bort favorit
+    // 🟡 Lägg till / ta bort film i backend + uppdatera state direkt
   const handleToggleFavorite = async (movie) => {
     try {
       const result = await toggleFavorite(movie);
@@ -55,6 +61,7 @@ export function FavoritesProvider({ children }) {
               posterUrl: movie.posterUrl,
               rating: movie.rating,
               genre: movie.genre || "Okänd genre",
+              overview: movie.overview || "Ingen beskrivning tillgänglig.",
             },
           ];
         }
@@ -68,7 +75,12 @@ export function FavoritesProvider({ children }) {
 
   return (
     <FavoritesContext.Provider
-      value={{ favorites, toggleFavorite: handleToggleFavorite, loading }}
+      value={{
+        favorites,
+        toggleFavorite: handleToggleFavorite,
+        loading,
+        reloadFavorites: loadFavorites,
+      }}
     >
       {children}
     </FavoritesContext.Provider>
