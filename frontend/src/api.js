@@ -1,6 +1,6 @@
 // src/api.js
 
-const API_URL = "https://localhost:7299"; // 🔧 Ändra port om din backend kör på annan port
+const API_URL = "https://localhost:7299"; // 🔧 Ändra port om backend körs på annan port
 
 // ===============================
 // 🎬 Hämtar populära filmer
@@ -115,10 +115,8 @@ export async function toggleFavorite(movie) {
     throw new Error("Misslyckades uppdatera favoriter");
   }
 
-  // 👇 Returnera info om den togs bort eller lades till
   return await res.json();
 }
-
 
 // ===============================
 // 💾 Hämtar sparade favoriter
@@ -159,6 +157,31 @@ export async function getProfile() {
     return await res.json();
   } catch (err) {
     console.error("⚠️ Fel vid hämtning av profil:", err);
+    throw err;
+  }
+}
+
+// ===============================
+// ✏️ Uppdatera profil (bio, profilbild, etc.)
+// ===============================
+export async function updateProfile(data) {
+  const token = localStorage.getItem("token");
+  if (!token) throw new Error("Ingen token sparad");
+
+  try {
+    const res = await fetch(`${API_URL}/api/User/update`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!res.ok) throw new Error("Kunde inte uppdatera profil");
+    return await res.json();
+  } catch (err) {
+    console.error("⚠️ Fel vid uppdatering av profil:", err);
     throw err;
   }
 }

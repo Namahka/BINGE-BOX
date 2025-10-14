@@ -7,7 +7,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // 🔐 Körs när appen startar
+  // 🧠 Hämtar profil men tar inte bort token om servern är nere
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -16,22 +16,25 @@ export function AuthProvider({ children }) {
       return;
     }
 
-    // Försök hämta profil
-    getProfile()
-      .then((data) => setUser(data))
-      .catch(() => {
-        localStorage.removeItem("token");
-        setUser(null);
-      })
-      .finally(() => setLoading(false));
+    const fetchProfile = async () => {
+      try {
+        const data = await getProfile();
+        setUser(data);
+      } catch (err) {
+        console.warn("⚠️ Kunde inte hämta profil just nu (men token finns kvar)");
+        // ❗ Ta INTE bort token om servern inte svarar
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
   }, []);
 
   // ✅ Vid login
   const login = (token, userData) => {
     localStorage.setItem("token", token);
     setUser(userData);
-
-    // 🔁 trigga global event (för FavoritesContext)
     window.dispatchEvent(new Event("authChange"));
   };
 
@@ -39,8 +42,6 @@ export function AuthProvider({ children }) {
   const logout = () => {
     localStorage.removeItem("token");
     setUser(null);
-
-    // 🔁 trigga global event (för FavoritesContext)
     window.dispatchEvent(new Event("authChange"));
   };
 

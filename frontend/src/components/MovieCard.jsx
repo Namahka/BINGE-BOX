@@ -28,7 +28,7 @@ export default function MovieCard({ movie }) {
 
   return (
     <div
-      className="bg-slate-800 rounded-2xl overflow-hidden shadow-md hover:shadow-lg transition-transform hover:scale-[1.03] duration-200 flex flex-col h-[500px] relative"
+      className="bg-fuchsia-950 rounded-2xl overflow-hidden shadow-md hover:shadow-lg transition-transform hover:scale-[1.03] duration-200 flex flex-col h-[500px] relative"
       onClick={(e) => {
         if (e.target.tagName === "BUTTON") return;
       }}
@@ -49,7 +49,7 @@ export default function MovieCard({ movie }) {
       </button>
 
       {/* 🎬 Filmens bild */}
-      <div className="w-full h-[280px] bg-slate-900 flex items-center justify-center">
+      <div className="w-full h-[280px] bg-fuchsia-950 flex items-center justify-center">
         {movie.posterUrl ? (
           <img
             src={movie.posterUrl}
@@ -63,17 +63,17 @@ export default function MovieCard({ movie }) {
 
       {/* 📄 Info */}
       <div className="flex-1 flex flex-col justify-between p-4">
-        <h3 className="text-yellow-400 font-semibold text-lg truncate mb-1">
+        <h3 className="text-black font-semibold text-lg truncate mb-1">
           {movie.title || "Untitled"}
         </h3>
 
         {movie.rating && (
-          <p className="text-yellow-400 text-sm mb-1">
+          <p className="text-cyan-100 text-sm mb-1">
             ⭐ {movie.rating.toFixed(1)}
           </p>
         )}
 
-        <p className="text-slate-300 text-sm line-clamp-3 leading-snug">
+        <p className="text-cyan-100 text-sm line-clamp-3 leading-snug">
           {movie.overview || "Ingen beskrivning tillgänglig."}
         </p>
 

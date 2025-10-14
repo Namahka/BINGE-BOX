@@ -18,12 +18,12 @@ const SearchBar = forwardRef(({ onSearch, onClearSearch }, ref) => {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex items-center bg-slate-800 rounded-md overflow-hidden h-10"
+      className="flex items-center bg-fuchsia-900 rounded-md overflow-hidden h-10"
     >
       <select
         value={category}
         onChange={(e) => setCategory(e.target.value)}
-        className="bg-slate-900 text-slate-200 px-2 outline-none border-none py-2 text-sm"
+        className="bg-fuchsia-900 text-orange-500 px-2 outline-none border-none py-2 text-sm"
       >
         <option value="all">All</option>
         <option value="movie">Movies</option>
@@ -36,7 +36,7 @@ const SearchBar = forwardRef(({ onSearch, onClearSearch }, ref) => {
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search movies, TV, celebs..."
-        className="bg-slate-800 text-slate-200 px-3 w-full placeholder-slate-400 focus:outline-none text-sm"
+        className="bg-fuchsia-900 text-black px-3 w-full placeholder-cyan-100 focus:outline-none text-sm"
       />
 
       {query && (
@@ -54,7 +54,7 @@ const SearchBar = forwardRef(({ onSearch, onClearSearch }, ref) => {
 
       <button
         type="submit"
-        className="bg-yellow-400 text-black font-semibold hover:bg-yellow-300 transition px-4 py-2 text-sm"
+        className="bg-fuchsia-900 text-orange-500 font-semibold hover:bg-yellow-300 transition px-4 py-2 text-sm"
       >
         Search
       </button>

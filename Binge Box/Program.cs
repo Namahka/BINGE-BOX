@@ -10,20 +10,13 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// -------------------------------
-// 💾 SERVICES
-// -------------------------------
-
-// Controllers
 builder.Services.AddControllers();
 
 // ✅ SQL SERVER
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// -------------------------------
-// 🔐 JWT Authentication
-// -------------------------------
+// 🔐 JWT
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -38,51 +31,26 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-// -------------------------------
-// 🎬 TMDb API-konfiguration
-// -------------------------------
-builder.Services.Configure<TmdbOptions>(builder.Configuration.GetSection("TMDb"));
-
-builder.Services.AddHttpClient("tmdb", (sp, http) =>
-{
-    var opts = sp.GetRequiredService<IOptions<TmdbOptions>>().Value;
-    http.BaseAddress = new Uri(opts.BaseUrl.TrimEnd('/') + "/");
-    http.Timeout = TimeSpan.FromSeconds(15);
-});
-
-builder.Services.AddScoped<ITmdbClient, TmdbClient>();
-
-// -------------------------------
-// 🌐 CORS – öppet under utveckling
-// -------------------------------
+// 🌐 CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
-        policy.AllowAnyOrigin()
-              .AllowAnyHeader()
-              .AllowAnyMethod());
+        policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
 });
 
-// -------------------------------
-// 🧾 Swagger med JWT-stöd
-// -------------------------------
+// 🧾 Swagger
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(options =>
+builder.Services.AddSwaggerGen(opt =>
 {
-    options.SwaggerDoc("v1", new OpenApiInfo { Title = "Binge Box API", Version = "v1" });
-
-    // 🔒 Lägg till "Authorize" i Swagger
-    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    opt.SwaggerDoc("v1", new OpenApiInfo { Title = "Binge Box API", Version = "v1" });
+    opt.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Name = "Authorization",
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer",
-        BearerFormat = "JWT",
         In = ParameterLocation.Header,
-        Description = "Skriv 'Bearer' + ett mellanslag + din JWT token."
+        Description = "Skriv 'Bearer' + mellanslag + din JWT-token",
+        Name = "Authorization",
+        Type = SecuritySchemeType.ApiKey
     });
-
-    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    opt.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
             new OpenApiSecurityScheme
@@ -93,14 +61,10 @@ builder.Services.AddSwaggerGen(options =>
                     Id = "Bearer"
                 }
             },
-            Array.Empty<string>()
+            new string[]{}
         }
     });
 });
-
-// -------------------------------
-// 🚀 APP PIPELINE
-// -------------------------------
 
 var app = builder.Build();
 
@@ -112,11 +76,11 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+// 🟢 Superviktigt – detta gör att bilder i wwwroot kan nås
+app.UseStaticFiles();
+
 app.UseCors("AllowAll");
-
-app.UseAuthentication();   // ✅ Måste ligga före Authorization
+app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers();
-
 app.Run();

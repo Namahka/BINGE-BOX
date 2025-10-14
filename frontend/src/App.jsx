@@ -37,7 +37,7 @@ function Header({ onSearch, onClearSearch, searchRef }) {
   };
 
   return (
-    <header className="bg-slate-900 text-white py-6 border-b border-slate-700 relative">
+    <header className="bg-indigo-950 text-white py-6 border-b border-black relative">
       <div className="flex items-center justify-center relative">
         <h1
           className="text-5xl font-bold text-yellow-400 cursor-pointer hover:text-yellow-300 transition"
@@ -84,20 +84,20 @@ function HomePage({ movies, mode, query, category, onBack, loading }) {
   };
 
   return (
-    <main className="min-h-screen bg-slate-900 text-white px-4 py-8 relative">
+    <main className="min-h-screen bg-violet-950 text-white px-4 py-8 relative">
       {mode === "search" && (
         <>
           <p className="mt-4 text-center text-gray-300">
             Showing results for{" "}
-            <span className="text-yellow-400">
+            <span className="text-white">
               {formatCategoryName(category)}
             </span>{" "}
-            matching <em className="text-yellow-300">"{query}"</em>
+            matching <em className="text-white">"{query}"</em>
           </p>
 
           <button
             onClick={() => onBack(false)}
-            className="mt-3 mx-auto block text-yellow-400 hover:underline"
+            className="mt-3 mx-auto block text-white hover:underline"
           >
             ← Back to popular
           </button>
@@ -138,7 +138,7 @@ function HomePage({ movies, mode, query, category, onBack, loading }) {
 
         {/* 🌀 Laddnings-overlay */}
         {loading && (
-          <div className="absolute inset-0 bg-slate-900/70 flex items-center justify-center rounded-lg">
+          <div className="absolute inset-0 bg-black flex items-center justify-center rounded-lg">
             <div className="w-10 h-10 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin"></div>
           </div>
         )}
