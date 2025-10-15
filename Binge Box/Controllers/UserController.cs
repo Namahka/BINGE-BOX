@@ -109,9 +109,62 @@ namespace BingeBox.Controllers
                 user.Bio
             });
         }
+        // ===============================
+        // 🔍 Sök användare
+        // GET /api/User/search?query=namn
+        // ===============================
+        [HttpGet("search")]
+        public IActionResult SearchUsers([FromQuery] string query)
+        {
+            if (string.IsNullOrWhiteSpace(query))
+                return BadRequest("Query saknas");
+
+            var users = _context.Users
+                .Where(u => u.Username.Contains(query))
+                .Select(u => new
+                {
+                    id = u.Id,
+                    username = u.Username,
+                    profileImageUrl = u.ProfileImageUrl
+                })
+                .ToList();
+
+            return Ok(users);
+        }
+
+        // ===============================
+        // 👤 Hämta annan användare via ID
+        // GET /api/User/{id}
+        // ===============================
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetUserById(int id)
+        {
+            var user = await _context.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == id);
+
+            if (user == null)
+                return NotFound();
+
+            string? fullImageUrl = null;
+            if (!string.IsNullOrEmpty(user.ProfileImageUrl))
+            {
+                fullImageUrl = $"{Request.Scheme}://{Request.Host}{user.ProfileImageUrl}";
+            }
+
+            return Ok(new
+            {
+                user.Id,
+                user.Username,
+                user.Email,
+                ProfileImageUrl = fullImageUrl,
+                user.Bio,
+                user.CreatedAt
+            });
+        }
     }
 
-    public class UpdateProfileRequest
+        public class UpdateProfileRequest
     {
         public string? Bio { get; set; }
         public IFormFile? ProfileImage { get; set; }

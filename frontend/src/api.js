@@ -203,6 +203,41 @@ export async function updateProfile(data) {
     throw err;
   }
 }
+// ===============================
+// 👥 Sök användare (kräver token)
+// ===============================
+export async function searchUsers(query) {
+  const token = localStorage.getItem("token");
+  if (!token) throw new Error("Ingen token sparad – logga in igen.");
+
+  try {
+    const encoded = encodeURIComponent(query.trim());
+    const url = `${API_URL}/api/User/search?query=${encoded}`;
+    console.log("👥 MEMBER SEARCH:", url);
+
+    const res = await fetch(url, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`, // ✅ viktig!
+      },
+    });
+
+    if (!res.ok) throw new Error(`Fel ${res.status}: Kunde inte söka användare`);
+    const data = await res.json();
+
+    const results = Array.isArray(data) ? data : [];
+    const sorted = results.sort((a, b) =>
+      a.username.localeCompare(b.username)
+    );
+
+    console.log(`✅ Hittade ${sorted.length} användare`);
+    return sorted;
+  } catch (err) {
+    console.error("⚠️ Fel vid användarsökning:", err);
+    return [];
+  }
+}
 
 // ===============================
 // 🟢 Registrera ny användare
@@ -223,6 +258,29 @@ export async function registerUser(userData) {
     return await res.json();
   } catch (err) {
     console.error("⚠️ Fel vid registrering:", err);
+    throw err;
+  }
+}
+// ===============================
+// 👤 Hämta användare via ID (för andras profiler)
+// ===============================
+export async function getUserById(id) {
+  const token = localStorage.getItem("token");
+  if (!token) throw new Error("Ingen token sparad – logga in igen.");
+
+  try {
+    const res = await fetch(`${API_URL}/api/User/${id}`, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!res.ok) throw new Error(`Kunde inte hämta användare ${id}`);
+    return await res.json();
+  } catch (err) {
+    console.error("⚠️ Fel vid hämtning av användare:", err);
     throw err;
   }
 }

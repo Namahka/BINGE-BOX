@@ -6,7 +6,8 @@ import {
   useNavigate,
   useLocation,
 } from "react-router-dom";
-import { getPopularMovies, searchMovies } from "./api";
+import { getPopularMovies, searchMovies, searchUsers } from "./api";
+
 import SearchBar from "./components/SearchBar";
 import MovieCard from "./components/MovieCard";
 import "./index.css";
@@ -19,6 +20,8 @@ import UserMenu from "./components/UserMenu";
 import Settings from "./pages/Settings";
 import { Star } from "lucide-react";
 import Favorites from "./pages/Favorites";
+import UserProfile from "./pages/UserProfile";
+
 
 
 
@@ -112,29 +115,46 @@ function HomePage({ movies, mode, query, category, onBack, loading }) {
           </p>
         )}
 
-        {movies.map((m) => (
-          <div
-            key={m.id}
-            onClick={() =>
-              navigate(
-                m.mediaType === "person"
-                  ? `/person/${m.id}`
-                  : `/${m.mediaType || "movie"}/${m.id}`,
-                {
-                  state: {
-                    mediaType: m.mediaType || "movie",
-                    fromSearch: mode === "search", // 👈 markerar att vi kom från sök
-                    query,
-                    category,
-                  },
-                }
-              )
+   {category === "members"
+  ? movies.map((u) => (
+      <div
+        key={u.id}
+        onClick={() => navigate(`/profile/${u.id}`)}
+        className="cursor-pointer bg-yellow-500 hover:bg-yellow-400 text-black rounded-xl p-4 flex flex-col items-center justify-center transition-transform hover:scale-105 shadow-md"
+      >
+        <img
+          src={u.profileImageUrl || "/default-avatar.png"}
+          alt={u.username}
+          className="w-24 h-24 rounded-full object-cover border-2 border-black mb-3"
+        />
+        <p className="font-semibold text-center">{u.username}</p>
+      </div>
+    ))
+  : movies.map((m) => (
+      <div
+        key={m.id}
+        onClick={() =>
+          navigate(
+            m.mediaType === "person"
+              ? `/person/${m.id}`
+              : `/${m.mediaType || "movie"}/${m.id}`,
+            {
+              state: {
+                mediaType: m.mediaType || "movie",
+                fromSearch: mode === "search",
+                query,
+                category,
+              },
             }
-            className="cursor-pointer hover:scale-105 transition-transform duration-200"
-          >
-            <MovieCard movie={m} />
-          </div>
-        ))}
+          )
+        }
+        className="cursor-pointer hover:scale-105 transition-transform duration-200"
+      >
+        <MovieCard movie={m} />
+      </div>
+    ))}
+
+
 
         {/* 🌀 Laddnings-overlay */}
         {loading && (
@@ -205,14 +225,26 @@ const handleSearch = async (q, cat) => {
   setError(null);
 
   try {
-    const data = await searchMovies(q, cat);
-    console.log("📦 DATA FRÅN searchMovies:", data);
+    let data = [];
+
+    if (cat === "members") {
+      console.log("👥 Söker medlemmar...");
+      data = await searchUsers(q); // 👉 använder nya funktionen från api.js
+    } else {
+      console.log("🎬 Söker filmer/serier...");
+      data = await searchMovies(q, cat);
+    }
+
+    console.log("📦 DATA FRÅN API:", data);
     const results = Array.isArray(data) ? data : [];
 
-    const sorted = [
-      ...results.filter((item) => item.mediaType === "person"),
-      ...results.filter((item) => item.mediaType !== "person"),
-    ];
+    const sorted =
+      cat === "members"
+        ? results.sort((a, b) => a.username.localeCompare(b.username)) // sortera medlemmar A–Ö
+        : [
+            ...results.filter((item) => item.mediaType === "person"),
+            ...results.filter((item) => item.mediaType !== "person"),
+          ];
 
     setMovies(sorted);
     setQuery(q);
@@ -229,46 +261,51 @@ const handleSearch = async (q, cat) => {
   }
 };
 
-  // 🧹 Rensa sökning (logga, back-to-popular)
-  const clearSearch = async () => {
-    setQuery("");
-    setCategory("all");
-    setMode("popular");
+// 🧹 Rensa sökning (logga, back-to-popular)
+const clearSearch = async () => {
+  setQuery("");
+  setCategory("all");
+  setMode("popular");
 
-    if (searchRef.current) searchRef.current.clearInput();
+  if (searchRef.current) searchRef.current.clearInput();
 
-    try {
-      setLoading(true);
-      const data = await getPopularMovies();
-      setMovies(data);
-      navigate("/");
-    } catch (err) {
-      console.error("⚠️ Fel vid hämtning:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    setLoading(true);
+    const data = await getPopularMovies();
+    setMovies(data);
+    navigate("/");
+  } catch (err) {
+    console.error("⚠️ Fel vid hämtning:", err);
+  } finally {
+    setLoading(false);
+  }
+};
 
-  return (
-    <>
-      <Header onSearch={handleSearch} onClearSearch={clearSearch} searchRef={searchRef} />
+return (
+  <>
+    <Header
+      onSearch={handleSearch}
+      onClearSearch={clearSearch}
+      searchRef={searchRef}
+    />
 
-      {error && <p className="text-center text-red-500 mt-10">{error}</p>}
+    {error && <p className="text-center text-red-500 mt-10">{error}</p>}
 
-      <Routes>
-        <Route
-          path="/"
-          element={
-            <HomePage
-              movies={movies}
-              mode={mode}
-              query={query}
-              category={category}
-              onBack={clearSearch}
-              loading={loading}
-            />
-          }
-        />
+    <Routes>
+      <Route
+        path="/"
+        element={
+          <HomePage
+            movies={movies}
+            mode={mode}
+            query={query}
+            category={category}
+            onBack={clearSearch}
+            loading={loading}
+          />
+        }
+      />
+
         <Route path="/movie/:id" element={<MovieDetails />} />
         <Route path="/tv/:id" element={<MovieDetails />} />
         <Route path="/person/:id" element={<PersonDetails />} />
@@ -277,7 +314,7 @@ const handleSearch = async (q, cat) => {
 <Route path="/register" element={<Register />} />
 <Route path="/settings" element={<Settings />} />
 <Route path="/favorites" element={<Favorites/>}/>
-
+<Route path="/profile/:id" element={<UserProfile />} />
 
       </Routes>
     </>

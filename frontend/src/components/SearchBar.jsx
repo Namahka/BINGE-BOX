@@ -15,6 +15,21 @@ const SearchBar = forwardRef(({ onSearch, onClearSearch }, ref) => {
     onSearch(query, category);
   };
 
+  const getPlaceholder = () => {
+    switch (category) {
+      case "movie":
+        return "Search movies...";
+      case "tv":
+        return "Search TV shows...";
+      case "person":
+        return "Search celebrities...";
+      case "members":
+        return "Search members...";
+      default:
+        return "Search movies, TV, celebs, or members...";
+    }
+  };
+
   return (
     <form
       onSubmit={handleSubmit}
@@ -29,13 +44,14 @@ const SearchBar = forwardRef(({ onSearch, onClearSearch }, ref) => {
         <option value="movie">Movies</option>
         <option value="tv">TV</option>
         <option value="person">Celebs</option>
+        <option value="members">Members</option> {/* 👈 NY! */}
       </select>
 
       <input
         type="text"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search movies, TV, celebs..."
+        placeholder={getPlaceholder()}
         className="bg-white text-black px-3 w-full placeholder-black focus:outline-none text-sm"
       />
 
@@ -54,7 +70,7 @@ const SearchBar = forwardRef(({ onSearch, onClearSearch }, ref) => {
 
       <button
         type="submit"
-        className="bg-white text-black font-semibold hover:bg-yellow-300 transition hover:text-black transition px-4 py-2 text-sm"
+        className="bg-white text-black font-semibold hover:bg-yellow-300 transition hover:text-black px-4 py-2 text-sm"
       >
         Search
       </button>

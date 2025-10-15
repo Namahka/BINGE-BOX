@@ -48,14 +48,14 @@ export default function MovieDetails() {
   if (!movie) return null;
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white p-6">
+    <div className="min-h-screen bg-black text-white p-6">
 <button
   onClick={() => {
     navigate(-1);
     // triggar sökrutan att rensas i App.jsx
     window.dispatchEvent(new PopStateEvent("popstate"));
   }}
-  className="mb-6 bg-slate-700 hover:bg-slate-600 text-white py-2 px-4 rounded"
+  className="mb-6 bg-yellow-500 hover:bg-yellow-400 text-black py-2 px-4 rounded"
 >
   ← Tillbaka
 </button>

@@ -38,14 +38,14 @@ export default function PersonDetails() {
       : person.biography;
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white p-6">
+    <div className="min-h-screen bg-black text-white p-6">
       <button
   onClick={() => {
     navigate(-1);
     // triggar sökrutan att rensas i App.jsx
     window.dispatchEvent(new PopStateEvent("popstate"));
   }}
-  className="mb-6 bg-slate-700 hover:bg-slate-600 text-white py-2 px-4 rounded"
+  className="mb-6 bg-yellow-500 hover:bg-yellow-400 text-black py-2 px-4 rounded"
 >
   ← Tillbaka
 </button>
@@ -99,7 +99,7 @@ export default function PersonDetails() {
                     state: { mediaType: m.mediaType || "movie" },
                   })
                 }
-                className="bg-slate-800 rounded-xl overflow-hidden hover:scale-105 hover:shadow-lg transition-transform duration-200 cursor-pointer"
+                className="bg-yellow-500 rounded-xl overflow-hidden hover:scale-105 hover:shadow-lg transition-transform duration-200 cursor-pointer"
               >
                 {m.posterUrl || m.poster ? (
                   <img
@@ -108,14 +108,14 @@ export default function PersonDetails() {
                     className="w-full h-[250px] object-cover"
                   />
                 ) : (
-                  <div className="h-[250px] bg-slate-700 flex items-center justify-center text-slate-500">
+                  <div className="h-[250px] bg-white flex items-center justify-center text-slate-500">
                     Ingen bild
                   </div>
                 )}
                 <div className="p-2 text-center">
-                  <p className="font-semibold truncate text-white">{m.title}</p>
+                  <p className="font-semibold truncate text-black">{m.title}</p>
                   {m.character && (
-                    <p className="text-sm text-gray-400 truncate">
+                    <p className="text-sm text-black truncate">
                       {m.character}
                     </p>
                   )}
