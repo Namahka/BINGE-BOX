@@ -194,37 +194,40 @@ function AppContent() {
     }
   }, [location.pathname]);
 
-  // 🔍 Hantera sökning
-  const handleSearch = async (q, cat) => {
-    if (!q || !q.trim()) return;
-    setLoading(true);
-    setError(null);
+const handleSearch = async (q, cat) => {
+  console.log("🔍 handleSearch TRIGGAD", q, cat);
+  if (!q || !q.trim()) {
+    console.log("⚠️ Ingen sökterm angiven, avbryter sök.");
+    return;
+  }
 
-    try {
-      const data = await searchMovies(q, cat);
-      const results = Array.isArray(data) ? data : [];
+  setLoading(true);
+  setError(null);
 
-      const sorted = [
-        ...results.filter((item) => item.mediaType === "person"),
-        ...results.filter((item) => item.mediaType !== "person"),
-      ];
+  try {
+    const data = await searchMovies(q, cat);
+    console.log("📦 DATA FRÅN searchMovies:", data);
+    const results = Array.isArray(data) ? data : [];
 
-      setMovies(sorted);
-      setQuery(q);
-      setCategory(cat);
-      setMode("search");
+    const sorted = [
+      ...results.filter((item) => item.mediaType === "person"),
+      ...results.filter((item) => item.mediaType !== "person"),
+    ];
 
-      // 🧹 rensa fältet direkt efter sök
-      if (searchRef.current) searchRef.current.clearInput();
+    setMovies(sorted);
+    setQuery(q);
+    setCategory(cat);
+    setMode("search");
 
-      navigate("/");
-    } catch (err) {
-      console.error("⚠️ Fel vid sökning:", err);
-      setError("Kunde inte hämta sökresultat.");
-    } finally {
-      setLoading(false);
-    }
-  };
+    if (searchRef.current) searchRef.current.clearInput();
+    navigate("/");
+  } catch (err) {
+    console.error("⚠️ Fel vid sökning:", err);
+    setError("Kunde inte hämta sökresultat.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   // 🧹 Rensa sökning (logga, back-to-popular)
   const clearSearch = async () => {

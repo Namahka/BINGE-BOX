@@ -20,29 +20,47 @@ export async function getPopularMovies(page = 1) {
   }
 }
 
-// ===============================
-// 🔍 Söker filmer/personer/serier
-// ===============================
 export async function searchMovies(query, category = "all", page = 1) {
   if (!query || !query.trim()) return [];
 
   try {
     const encoded = encodeURIComponent(query.trim());
-    const res = await fetch(
-      `${API_URL}/api/tmdb/search/${category}?query=${encoded}&page=${page}`,
-      {
-        method: "GET",
-        headers: { Accept: "application/json" },
-      }
-    );
+    const url = `${API_URL}/api/tmdb/search/${category}?query=${encoded}&page=${page}`;
+    console.log("📡 API-anrop:", url);
+
+    const res = await fetch(url, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+    });
 
     if (!res.ok) throw new Error(`Fel ${res.status}: Kunde inte söka`);
-    return await res.json();
+
+    const data = await res.json();
+    console.log("📦 RAW DATA FRÅN BACKEND:", data);
+
+    // Eftersom backend returnerar en ren array
+    const results = Array.isArray(data) ? data : data.results || [];
+
+    // Filtrera bort allt utan bild eller text
+    const cleaned = results.filter(
+      (item) =>
+        (item.posterUrl || item.poster_path || item.profile_path) &&
+        (item.overview || item.title)
+    );
+
+    // Sortera populärast först
+    const sorted = cleaned.sort(
+      (a, b) => (b.popularity || b.rating || 0) - (a.popularity || a.rating || 0)
+    );
+
+    console.log(`✅ Returnerar ${sorted.length} resultat`);
+    return sorted;
   } catch (err) {
     console.error("⚠️ Fel vid sökning:", err);
     return [];
   }
 }
+
 
 // ===============================
 // 🎥 Hämtar detaljer om film
