@@ -121,16 +121,20 @@ namespace BingeBox.Controllers
 
             var users = _context.Users
                 .Where(u => u.Username.Contains(query))
+                .AsEnumerable() // behövs för att använda Request.Host i select
                 .Select(u => new
                 {
                     id = u.Id,
                     username = u.Username,
-                    profileImageUrl = u.ProfileImageUrl
+                    profileImageUrl = string.IsNullOrEmpty(u.ProfileImageUrl)
+                        ? null
+                        : $"{Request.Scheme}://{Request.Host}{u.ProfileImageUrl}"
                 })
                 .ToList();
 
             return Ok(users);
         }
+
 
         // ===============================
         // 👤 Hämta annan användare via ID
