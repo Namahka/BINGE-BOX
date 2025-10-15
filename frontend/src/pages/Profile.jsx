@@ -1,38 +1,80 @@
 import { useState, useRef, useEffect } from "react";
-import { getProfile } from "../api";
+import { Link, useNavigate } from "react-router-dom";
+import { Star } from "lucide-react";
+import {
+  getProfile,
+  getFollowers,
+  getFollowing,
+  getUserById,
+  toggleFavorite,
+  getFavorites,
+} from "../api";
 import { useAuth } from "../context/AuthContext";
-import { useFavorites } from "../context/FavoritesContext"; // 👈 fixat import
-import MovieCard from "../components/MovieCard";
 
 export default function Profile() {
   const { user } = useAuth();
-  const { favorites } = useFavorites(); // 👈 nu fungerar den
-  const [activeTab, setActiveTab] = useState("about"); // 👈 ingen rödmarkering
-  const [isEditing, setIsEditing] = useState(false);
-  const [previewImage, setPreviewImage] = useState("");
   const [bio, setBio] = useState("");
+  const [previewImage, setPreviewImage] = useState("");
+  const [followers, setFollowers] = useState([]);
+  const [following, setFollowing] = useState([]);
+  const [favoritesList, setFavoritesList] = useState([]);
+  const [view, setView] = useState("about");
+  const [isEditing, setIsEditing] = useState(false);
   const fileInputRef = useRef(null);
+  const navigate = useNavigate();
 
-  // 🔄 Hämta profilinfo
+  // 🔄 Ladda profil, följare/följer och favoriter
   useEffect(() => {
-    const fetchProfile = async () => {
+    async function loadProfile() {
       try {
         const data = await getProfile();
         setPreviewImage(data.profileImageUrl || "");
         setBio(data.bio || "");
+
+        const [f1, f2, favs] = await Promise.all([
+          getFollowers(data.id),
+          getFollowing(data.id),
+          getFavorites(),
+        ]);
+
+        const resolveUsers = async (list) => {
+          return Promise.all(
+            list.map(async (f) => {
+              const userId =
+                f.id || f.userId || f.followerId || f.followedId || f.followingId;
+              try {
+                const u = await getUserById(userId);
+                return {
+                  id: u.id,
+                  username: u.username,
+                  profileImageUrl: u.profileImageUrl,
+                };
+              } catch {
+                return null;
+              }
+            })
+          ).then((res) => res.filter(Boolean));
+        };
+
+        setFollowers(await resolveUsers(f1));
+        setFollowing(await resolveUsers(f2));
+        setFavoritesList(favs);
       } catch (err) {
         console.error("⚠️ Kunde inte hämta profil:", err);
       }
-    };
-    fetchProfile();
+    }
+
+    loadProfile();
   }, []);
 
+  // 📸 Byt profilbild
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     setPreviewImage(URL.createObjectURL(file));
   };
 
+  // 💾 Spara ändringar
   const handleSave = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -51,7 +93,6 @@ export default function Profile() {
 
       if (!res.ok) throw new Error("Misslyckades uppdatera profil");
       const data = await res.json();
-
       setBio(data.bio);
       setPreviewImage(data.profileImageUrl);
       setIsEditing(false);
@@ -62,107 +103,188 @@ export default function Profile() {
     }
   };
 
+  // ⭐ Ta bort favorit
+  const handleToggleFavorite = async (movie) => {
+    try {
+      await toggleFavorite(movie);
+      setFavoritesList((prev) =>
+        prev.filter((f) => f.movieId !== movie.movieId)
+      );
+    } catch (err) {
+      console.error("⚠️ Kunde inte ändra favorit:", err);
+    }
+  };
+
   if (!user)
     return (
-      <div className="min-h-screen bg-yellow-400 flex items-center justify-center text-white">
+      <div className="min-h-screen bg-black text-yellow-400 flex items-center justify-center">
         Du måste vara inloggad.
       </div>
     );
 
   return (
-    <div className="min-h-screen bg-yellow-400 text-black p-6 relative">
+    <main className="min-h-screen bg-black text-white flex flex-col items-center py-10 px-4">
       {/* 👤 Profilhuvud */}
-      <div className="flex flex-col md:flex-row items-center gap-6 mb-8">
-        <img
-          src={previewImage || "/default-avatar.png"}
-          alt="Profilbild"
-          className="w-32 h-32 rounded-full object-cover border-4 border-black"
-        />
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold text-yellow-400">{user.username}</h1>
-          <p className="text-black mt-2 max-w-xl">
-            {bio || "Ingen beskrivning än. Lägg till något om dig själv!"}
-          </p>
-        </div>
+      <img
+        src={previewImage || "/default-avatar.png"}
+        alt="Profilbild"
+        className="w-32 h-32 rounded-full object-cover border-4 border-yellow-400 mb-4"
+      />
+      <h2 className="text-3xl font-bold text-yellow-400">{user.username}</h2>
+      <p className="text-gray-300 mt-2 text-center max-w-md">
+        {bio || "Ingen bio än."}
+      </p>
 
+      <button
+        onClick={() => setIsEditing(true)}
+        className="mt-4 px-5 py-2 bg-yellow-400 hover:bg-yellow-500 text-black font-semibold rounded-lg"
+      >
+        Redigera profil
+      </button>
+
+      <div className="flex gap-6 mt-6">
         <button
-          onClick={() => setIsEditing(true)}
-          className="absolute top-6 right-6 bg-black hover:bg-white text-yellow-400 font-semibold px-4 py-2 rounded shadow"
+          onClick={() => setView("followers")}
+          className="text-gray-300 hover:text-yellow-400"
         >
-          Redigera profil
+          <span className="text-yellow-400 font-bold">{followers.length}</span>{" "}
+          Följare
+        </button>
+        <button
+          onClick={() => setView("following")}
+          className="text-gray-300 hover:text-yellow-400"
+        >
+          <span className="text-yellow-400 font-bold">{following.length}</span>{" "}
+          Följer
         </button>
       </div>
 
-      {/* 🔖 Flikar */}
-      <div className="flex gap-4 border-b border-black mb-6">
-        {[
-          { key: "about", label: "Om mig" },
-          { key: "favorites", label: "Mina favoriter" },
-          { key: "reviews", label: "Mina reviews" },
-        ].map((tab) => (
+      {/* Flikar */}
+      <div className="flex gap-6 mt-8 border-b border-gray-700 pb-2">
+        {["about", "favorites"].map((tab) => (
           <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`pb-2 px-3 font-semibold ${
-              activeTab === tab.key
-                ? "text-black border-b-2 border-black"
-                : "text-slate-700 hover:text-black"
+            key={tab}
+            onClick={() => setView(tab)}
+            className={`capitalize ${
+              view === tab
+                ? "text-yellow-400 border-b-2 border-yellow-400"
+                : "text-gray-400"
             }`}
           >
-            {tab.label}
+            {tab === "about" ? "Om mig" : "Favoriter"}
           </button>
         ))}
       </div>
 
       {/* 📄 Innehåll */}
-      {activeTab === "about" && (
-        <section>
-          <h2 className="text-xl font-bold text-yellow-400 mb-3">Om mig</h2>
-          <p className="text-black">{bio || "Ingen bio ännu."}</p>
-        </section>
-      )}
-
-      {activeTab === "favorites" && (
-        <section>
-          <h2 className="text-xl font-bold text-black mb-4">Mina favoriter</h2>
-          {favorites.length === 0 ? (
-            <p className="text-black">Inga favoriter ännu.</p>
-          ) : (
-            <div className="grid gap-6 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-              {favorites.map((m) => (
-                <MovieCard
-                  key={m.movieId}
-                  movie={{
-                    id: m.movieId,
-                    title: m.title,
-                    posterUrl: m.posterUrl,
-                    rating: m.rating,
-                    genre: m.genre,
-                    overview: m.overview,
-                  }}
-                />
-              ))}
-            </div>
-          )}
-        </section>
-      )}
-
-      {activeTab === "reviews" && (
-        <section>
-          <h2 className="text-xl font-bold text-yellow-400 mb-4">Mina reviews</h2>
-          <p className="text-black italic">
-            (Kommer snart – här kommer du kunna skriva recensioner och sätta betyg.)
+      <section className="mt-6 w-full max-w-3xl text-center">
+        {view === "about" && (
+          <p className="text-gray-400">
+            Gick med: {new Date(user.createdAt).toLocaleDateString("sv-SE")}
           </p>
-        </section>
-      )}
+        )}
+
+        {/* 🟡 FAVORITER (klickbara till MovieDetails) */}
+        {view === "favorites" && (
+          <section>
+            <h2 className="text-xl font-bold text-yellow-400 mb-4">
+              Mina favoriter
+            </h2>
+            {favoritesList.length === 0 ? (
+              <p className="text-gray-500">Inga favoriter ännu.</p>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6 mt-4">
+                {favoritesList.map((m) => (
+                  <div
+                    key={m.movieId}
+                    onClick={() => navigate(`/movie/${m.movieId}`)}
+                    className="relative group rounded-lg overflow-hidden border border-gray-700 cursor-pointer hover:scale-105 transition-transform duration-200"
+                  >
+                    <img
+                      src={m.posterUrl || "/placeholder.jpg"}
+                      alt={m.title}
+                      className="w-full h-64 object-cover"
+                    />
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation(); // ⛔ hindrar klick från att trigga navigation
+                        handleToggleFavorite(m);
+                      }}
+                      className="absolute top-2 right-2 bg-black/70 p-1 rounded-full hover:bg-black transition"
+                    >
+                      <Star size={22} fill="#facc15" color="#facc15" />
+                    </button>
+                    <div className="p-2 text-center">
+                      <h3 className="text-sm font-semibold text-yellow-400 truncate">
+                        {m.title}
+                      </h3>
+                      <p className="text-xs text-gray-400">
+                        {m.genre || "Okänd genre"}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* 🧍 Följare */}
+        {view === "followers" && (
+          <ul className="mt-6 flex flex-col items-center gap-3">
+            {followers.length > 0 ? (
+              followers.map((f) => (
+                <Link
+                  to={`/user/${f.id}`}
+                  key={f.id}
+                  className="flex items-center gap-3 bg-black border hover:bg-yellow-500 hover:text-black px-4 py-2 rounded-lg w-72 justify-start transition-all duration-200"
+                >
+                  <img
+                    src={f.profileImageUrl || "/default-avatar.png"}
+                    alt={f.username}
+                    className="w-10 h-10 rounded-full object-cover border border-gray-700"
+                  />
+                  <span className="font-semibold">{f.username}</span>
+                </Link>
+              ))
+            ) : (
+              <p className="text-gray-500">Inga följare ännu.</p>
+            )}
+          </ul>
+        )}
+
+        {/* 👥 Följer */}
+        {view === "following" && (
+          <ul className="mt-6 flex flex-col items-center gap-3">
+            {following.length > 0 ? (
+              following.map((f) => (
+                <Link
+                  to={`/user/${f.id}`}
+                  key={f.id}
+                  className="flex items-center gap-3 bg-black border hover:bg-yellow-500 hover:text-black px-4 py-2 rounded-lg w-72 justify-start transition-all duration-200"
+                >
+                  <img
+                    src={f.profileImageUrl || "/default-avatar.png"}
+                    alt={f.username}
+                    className="w-10 h-10 rounded-full object-cover border border-gray-700"
+                  />
+                  <span className="font-semibold">{f.username}</span>
+                </Link>
+              ))
+            ) : (
+              <p className="text-gray-500">Följer ingen ännu.</p>
+            )}
+          </ul>
+        )}
+      </section>
 
       {/* ✏️ Modal */}
       {isEditing && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-          <div className="bg-slate-800 p-6 rounded-2xl w-[90%] max-w-lg relative">
+          <div className="bg-black border p-6 rounded-2xl w-[90%] max-w-lg relative">
             <button
               onClick={() => setIsEditing(false)}
-              className="absolute top-3 right-3 text-wh hover:text-white text-xl"
+              className="absolute top-3 right-3 text-white hover:text-yellow-400 text-xl"
             >
               ✕
             </button>
@@ -172,7 +294,7 @@ export default function Profile() {
             </h2>
 
             <div className="mb-5">
-              <p className="font-semibold mb-2">Profilbild</p>
+              <p className="font-semibold mb-2 text-white">Profilbild</p>
               <div className="flex items-center gap-4">
                 <img
                   src={previewImage || "/default-avatar.png"}
@@ -190,11 +312,11 @@ export default function Profile() {
             </div>
 
             <div className="mb-5">
-              <p className="font-semibold mb-2">Om mig</p>
+              <p className="font-semibold mb-2 text-white">Om mig</p>
               <textarea
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
-                className="w-full bg-slate-700 p-3 rounded text-white resize-none h-28 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                className="w-full bg-black border p-3 rounded text-white resize-none h-28 focus:outline-none focus:ring-2 focus:ring-yellow-400"
                 placeholder="Skriv lite om dig själv..."
               ></textarea>
             </div>
@@ -202,7 +324,7 @@ export default function Profile() {
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setIsEditing(false)}
-                className="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white"
+                className="px-4 py-2 rounded bg-yellow-400 hover:bg-yellow-500 text-black"
               >
                 Avbryt
               </button>
@@ -216,6 +338,6 @@ export default function Profile() {
           </div>
         </div>
       )}
-    </div>
+    </main>
   );
 }

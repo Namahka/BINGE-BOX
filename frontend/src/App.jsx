@@ -115,11 +115,12 @@ function HomePage({ movies, mode, query, category, onBack, loading }) {
           </p>
         )}
 
-   {category === "members"
+   
+    {category === "members"
   ? movies.map((u) => (
       <div
         key={u.id}
-        onClick={() => navigate(`/profile/${u.id}`)}
+        onClick={() => navigate(`/user/${u.id}`)}   // ✅ FIXAD
         className="cursor-pointer bg-yellow-500 hover:bg-yellow-400 text-black rounded-xl p-4 flex flex-col items-center justify-center transition-transform hover:scale-105 shadow-md"
       >
         <img
@@ -130,6 +131,7 @@ function HomePage({ movies, mode, query, category, onBack, loading }) {
         <p className="font-semibold text-center">{u.username}</p>
       </div>
     ))
+
   : movies.map((m) => (
       <div
         key={m.id}
@@ -314,7 +316,7 @@ return (
 <Route path="/register" element={<Register />} />
 <Route path="/settings" element={<Settings />} />
 <Route path="/favorites" element={<Favorites/>}/>
-<Route path="/profile/:id" element={<UserProfile />} />
+<Route path="/user/:id" element={<UserProfile />} />
 
       </Routes>
     </>

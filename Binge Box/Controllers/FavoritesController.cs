@@ -1,9 +1,9 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Security.Claims;
 using BingeBox.Data;
 using BingeBox.Models;
+using System.Security.Claims;
 
 namespace BingeBox.Controllers
 {
@@ -19,109 +19,70 @@ namespace BingeBox.Controllers
             _context = context;
         }
 
-        // 🟡 TOGGLE – lägg till eller ta bort favorit (endast en unik per film)
-        [HttpPost("toggle")]
-        public async Task<IActionResult> ToggleFavorite([FromBody] FavoriteRequest req)
-        {
-            try
-            {
-                if (req == null || req.MovieId == 0)
-                    return BadRequest("Ogiltig data");
-
-                var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-                if (string.IsNullOrEmpty(userIdClaim))
-                    return Unauthorized("Token saknar användar-ID");
-
-                if (!int.TryParse(userIdClaim, out int userId))
-                    return Unauthorized("Ogiltigt användar-ID i token");
-
-                // 🔍 Kolla om filmen redan finns som favorit
-                var existing = await _context.Favorites
-                    .FirstOrDefaultAsync(f => f.MovieId == req.MovieId && f.UserId == userId);
-
-                if (existing != null)
-                {
-                    // 🗑️ Ta bort den
-                    _context.Favorites.Remove(existing);
-                    await _context.SaveChangesAsync();
-
-                    return Ok(new
-                    {
-                        message = "❌ Borttagen från favoriter",
-                        removed = true
-                    });
-                }
-
-                // ➕ Annars lägg till ny favorit
-                var fav = new Favorite
-                {
-                    UserId = userId,
-                    MovieId = req.MovieId,
-                    Title = req.Title ?? "",
-                    PosterUrl = req.PosterUrl,
-                    Rating = req.Rating,
-                    Genre = req.Genre ?? "Okänd genre"
-                };
-
-                _context.Favorites.Add(fav);
-                await _context.SaveChangesAsync();
-
-                return Ok(new
-                {
-                    message = "⭐ Tillagd i favoriter",
-                    removed = false
-                });
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"❌ FEL I FAVORITES: {ex.Message}");
-                return StatusCode(500, new { error = ex.Message });
-            }
-        }
-
-        // 🟢 GET – hämta alla favoriter för inloggad användare
         [HttpGet]
         public async Task<IActionResult> GetFavorites()
         {
-            try
-            {
-                var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-                if (string.IsNullOrEmpty(userIdClaim))
-                    return Unauthorized("Token saknar användar-ID");
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-                if (!int.TryParse(userIdClaim, out int userId))
-                    return Unauthorized("Ogiltigt användar-ID i token");
+            var favorites = await _context.Favorites
+                .Where(f => f.UserId == userId)
+                .Select(f => new {
+                    f.MovieId,
+                    f.Title,
+                    f.PosterUrl,
+                    f.Genre,
+                    f.Rating
+                })
+                .ToListAsync();
 
-                var favorites = await _context.Favorites
-                    .Where(f => f.UserId == userId)
-                    .Select(f => new
-                    {
-                        f.Id,
-                        f.MovieId,
-                        f.Title,
-                        f.PosterUrl,
-                        f.Rating,
-                        f.Genre
-                    })
-                    .ToListAsync();
-
-                return Ok(favorites);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"❌ FEL VID HÄMTNING AV FAVORITER: {ex.Message}");
-                return StatusCode(500, new { error = ex.Message });
-            }
+            return Ok(favorites);
         }
-    }
 
-    // 📦 DTO för inkommande favoritdata
-    public class FavoriteRequest
-    {
-        public int MovieId { get; set; }
-        public string? Title { get; set; }
-        public string? PosterUrl { get; set; }
-        public double? Rating { get; set; }
-        public string? Genre { get; set; }
+        [HttpPost("toggle")]
+        public async Task<IActionResult> ToggleFavorite([FromBody] Favorite fav)
+        {
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+            var existing = await _context.Favorites
+                .FirstOrDefaultAsync(f => f.UserId == userId && f.MovieId == fav.MovieId);
+
+            if (existing != null)
+            {
+                _context.Favorites.Remove(existing);
+                await _context.SaveChangesAsync();
+                return Ok(new { favorite = false });
+            }
+
+            var newFav = new Favorite
+            {
+                UserId = userId,
+                MovieId = fav.MovieId,
+                Title = fav.Title,
+                PosterUrl = fav.PosterUrl,
+                Genre = fav.Genre,
+                Rating = fav.Rating
+            };
+
+            _context.Favorites.Add(newFav);
+            await _context.SaveChangesAsync();
+            return Ok(new { favorite = true });
+        }
+
+        [HttpGet("user/{userId}")]
+        public async Task<IActionResult> GetUserFavorites(int userId)
+        {
+            var favorites = await _context.Favorites
+                .Where(f => f.UserId == userId)
+                .Select(f => new {
+                    f.MovieId,
+                    f.Title,
+                    f.PosterUrl,
+                    f.Genre,
+                    f.Rating
+                })
+                .ToListAsync();
+
+            return Ok(favorites);
+        }
     }
 }
