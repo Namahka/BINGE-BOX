@@ -1,14 +1,16 @@
-import { createContext, useContext, useState, useEffect } from "react";
-import { getFavorites, toggleFavorite } from "../api";
+/* eslint-disable react-refresh/only-export-components */
+import { createContext, useState, useEffect } from "react";
 
-const FavoritesContext = createContext();
+export const FavoritesContext = createContext(null);
+
+const API_URL = "https://localhost:7299";
 
 export function FavoritesProvider({ children }) {
   const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 🔄 Ladda favoriter baserat på token (per användare)
-  const loadFavorites = async () => {
+  // 🧠 Hämta favoriter från backend
+  async function loadFavorites() {
     const token = localStorage.getItem("token");
     if (!token) {
       setFavorites([]);
@@ -17,76 +19,110 @@ export function FavoritesProvider({ children }) {
     }
 
     try {
-      setLoading(true);
-      const data = await getFavorites();
-      setFavorites(data || []);
+      const res = await fetch(`${API_URL}/api/favorites`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Misslyckades hämta favoriter");
+      const data = await res.json();
+      setFavorites(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error("⚠️ Kunde inte hämta favoriter:", err);
+      console.error("❌ Fel vid laddning av favoriter:", err);
       setFavorites([]);
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  // 🧠 Körs vid start + när token ändras (login/logout)
   useEffect(() => {
     loadFavorites();
 
-    // 🟡 Lyssna på förändringar i localStorage (t.ex. login/logout)
-    const onStorageChange = (e) => {
-      if (e.key === "token") {
-        loadFavorites();
-      }
-    };
-
-    window.addEventListener("storage", onStorageChange);
-    return () => window.removeEventListener("storage", onStorageChange);
+    // 🟡 Uppdatera favoriter om token ändras (login/logout)
+    const onAuthChange = () => loadFavorites();
+    window.addEventListener("authChange", onAuthChange);
+    return () => window.removeEventListener("authChange", onAuthChange);
   }, []);
 
-    // 🟡 Lägg till / ta bort film i backend + uppdatera state direkt
-  const handleToggleFavorite = async (movie) => {
-    try {
-      const result = await toggleFavorite(movie);
+  // 🧹 Rensa favoriter (vid logout)
+  function clearFavorites() {
+    setFavorites([]);
+  }
 
-      setFavorites((prev) => {
-        const exists = prev.some((f) => f.movieId === movie.id);
-        if (exists) {
-          return prev.filter((f) => f.movieId !== movie.id);
-        } else {
-          return [
-            ...prev,
-            {
-              movieId: movie.id,
-              title: movie.title,
-              posterUrl: movie.posterUrl,
-              rating: movie.rating,
-              genre: movie.genre || "Okänd genre",
-              overview: movie.overview || "Ingen beskrivning tillgänglig.",
-            },
-          ];
-        }
+  // ⭐ Toggle favorit
+  async function toggleFavorite(movie, showLoginPopup) {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      if (showLoginPopup) showLoginPopup();
+      return;
+    }
+
+    // 🧩 Normalisera filmdata (samma format överallt)
+    const movieId =
+      movie.id ||
+      movie.movieId ||
+      movie.tmdbId ||
+      movie.externalId ||
+      0;
+
+    if (!movieId) {
+      console.warn("⚠️ Ogiltigt MovieId:", movie);
+      return;
+    }
+
+    const payload = {
+      movieId,
+      title: movie.title || movie.name || "Okänd titel",
+      posterUrl:
+        movie.posterUrl ||
+        (movie.poster_path
+          ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
+          : ""),
+      genre:
+        movie.genre ||
+        (movie.genres?.length
+          ? movie.genres.map((g) => g.name).join(", ")
+          : "Okänd genre"),
+      rating: movie.vote_average || movie.rating || 0,
+      overview: movie.overview || "",
+    };
+
+    try {
+      const res = await fetch(`${API_URL}/api/favorites/toggle`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
       });
 
-      return result;
+      if (!res.ok) throw new Error("Misslyckades uppdatera favorit");
+
+      const result = await res.json();
+
+      // 🔄 Uppdatera lokalt utan dubbletter
+      setFavorites((prev) => {
+        const cleaned = prev.filter(
+          (f) => Number(f.movieId) !== Number(movieId)
+        );
+        if (result.favorite) return [...cleaned, payload];
+        return cleaned;
+      });
     } catch (err) {
-      console.error("⚠️ Kunde inte toggla favorit:", err);
+      console.error("⚠️ toggleFavorite-fel:", err);
     }
-  };
+  }
 
   return (
     <FavoritesContext.Provider
       value={{
         favorites,
-        toggleFavorite: handleToggleFavorite,
-        loading,
+        toggleFavorite,
         reloadFavorites: loadFavorites,
+        clearFavorites, // 🧹 för logout
+        loading,
       }}
     >
       {children}
     </FavoritesContext.Provider>
   );
-}
-
-export function useFavorites() {
-  return useContext(FavoritesContext);
 }

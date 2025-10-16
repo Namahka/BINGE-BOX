@@ -9,7 +9,7 @@ import {
   toggleFavorite,
   getFavorites,
 } from "../api";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../hooks/useAuth";
 
 export default function Profile() {
   const { user } = useAuth();
@@ -58,7 +58,15 @@ export default function Profile() {
 
         setFollowers(await resolveUsers(f1));
         setFollowing(await resolveUsers(f2));
-        setFavoritesList(favs);
+
+        // 🔹 Ta bort dubbletter lokalt baserat på MovieId
+        const uniqueFavorites = Array.from(
+          new Map(
+            favs.map((m) => [Number(m.movieId || m.id), m])
+          ).values()
+        );
+
+        setFavoritesList(uniqueFavorites);
       } catch (err) {
         console.error("⚠️ Kunde inte hämta profil:", err);
       }
@@ -103,24 +111,26 @@ export default function Profile() {
     }
   };
 
-  // ⭐ Ta bort favorit
+  // ⭐ Lägg till eller ta bort favorit — utan dubbletter
   const handleToggleFavorite = async (movie) => {
     try {
       await toggleFavorite(movie);
-      setFavoritesList((prev) =>
-        prev.filter((f) => f.movieId !== movie.movieId)
+
+      // Hämta senaste lista från backend
+      const updated = await getFavorites();
+
+      // Filtrera bort dubbletter baserat på MovieId
+      const unique = Array.from(
+        new Map(
+          updated.map((f) => [Number(f.movieId || f.id), f])
+        ).values()
       );
+
+      setFavoritesList(unique);
     } catch (err) {
-      console.error("⚠️ Kunde inte ändra favorit:", err);
+      console.error("⚠️ Kunde inte toggla favorit:", err);
     }
   };
-
-  if (!user)
-    return (
-      <div className="min-h-screen bg-black text-yellow-400 flex items-center justify-center">
-        Du måste vara inloggad.
-      </div>
-    );
 
   return (
     <main className="min-h-screen bg-black text-white flex flex-col items-center py-10 px-4">
@@ -130,7 +140,10 @@ export default function Profile() {
         alt="Profilbild"
         className="w-32 h-32 rounded-full object-cover border-4 border-yellow-400 mb-4"
       />
-      <h2 className="text-3xl font-bold text-yellow-400">{user.username}</h2>
+      <h2 className="text-3xl font-bold text-yellow-400">
+        {user?.username || "Laddar..."}
+      </h2>
+
       <p className="text-gray-300 mt-2 text-center max-w-md">
         {bio || "Ingen bio än."}
       </p>
@@ -180,11 +193,14 @@ export default function Profile() {
       <section className="mt-6 w-full max-w-3xl text-center">
         {view === "about" && (
           <p className="text-gray-400">
-            Gick med: {new Date(user.createdAt).toLocaleDateString("sv-SE")}
+            Gick med:{" "}
+            {user?.createdAt
+              ? new Date(user.createdAt).toLocaleDateString("sv-SE")
+              : "Okänt datum"}
           </p>
         )}
 
-        {/* 🟡 FAVORITER (klickbara till MovieDetails) */}
+        {/* 🟡 FAVORITER */}
         {view === "favorites" && (
           <section>
             <h2 className="text-xl font-bold text-yellow-400 mb-4">
@@ -196,8 +212,8 @@ export default function Profile() {
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6 mt-4">
                 {favoritesList.map((m) => (
                   <div
-                    key={m.movieId}
-                    onClick={() => navigate(`/movie/${m.movieId}`)}
+                    key={Number(m.movieId || m.id)}
+                    onClick={() => navigate(`/movie/${Number(m.movieId || m.id)}`)}
                     className="relative group rounded-lg overflow-hidden border border-gray-700 cursor-pointer hover:scale-105 transition-transform duration-200"
                   >
                     <img
@@ -207,7 +223,7 @@ export default function Profile() {
                     />
                     <button
                       onClick={(e) => {
-                        e.stopPropagation(); // ⛔ hindrar klick från att trigga navigation
+                        e.stopPropagation();
                         handleToggleFavorite(m);
                       }}
                       className="absolute top-2 right-2 bg-black/70 p-1 rounded-full hover:bg-black transition"

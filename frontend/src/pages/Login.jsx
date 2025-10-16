@@ -1,35 +1,40 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext.jsx";
-
+import { useAuth } from "../hooks/useAuth"; // ✅ rätt path
 import { loginUser, getProfile } from "../api";
 
+
 export default function Login() {
-  const [identifier, setIdentifier] = useState(""); // 👈 e-post eller användarnamn
+  const [identifier, setIdentifier] = useState(""); // e-post eller användarnamn
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuth(); // 🟢 kommer från AuthContext
+  const { login } = useAuth(); // från AuthContext
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setLoading(true);
 
     try {
-      // 🔐 1. Logga in och få JWT-token
+      // 🔐 1. Logga in → få JWT-token
       const data = await loginUser(identifier, password);
+      const token = data.access_token;
 
-      // 👤 2. Hämta användarprofilen direkt efter inloggning
+      // 👤 2. Hämta användarprofil direkt efter inloggning
       const profile = await getProfile();
 
-      // 🧠 3. Uppdatera AuthContext (så UserMenu märker direkt)
-      login(data.access_token, profile);
+      // 🧠 3. Uppdatera AuthContext så appen vet att du är inloggad
+      login(token, profile);
 
       // 🚀 4. Navigera till profilsidan
       navigate("/profile");
     } catch (err) {
       console.error("Login error:", err);
       setError("Felaktigt användarnamn eller lösenord");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -48,6 +53,8 @@ export default function Login() {
           placeholder="E-post eller användarnamn"
           value={identifier}
           onChange={(e) => setIdentifier(e.target.value)}
+          autoComplete="username"
+          required
         />
 
         <input
@@ -56,16 +63,35 @@ export default function Login() {
           placeholder="Lösenord"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          autoComplete="current-password"
+          required
         />
 
-        {error && <p className="text-red-400 text-sm mb-3">{error}</p>}
+        {error && (
+          <p className="text-red-500 text-sm mb-3 text-center">{error}</p>
+        )}
 
         <button
           type="submit"
-          className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-semibold py-2 rounded transition"
+          disabled={loading}
+          className={`w-full font-semibold py-2 rounded transition ${
+            loading
+              ? "bg-gray-400 text-black cursor-not-allowed"
+              : "bg-yellow-500 hover:bg-yellow-400 text-black"
+          }`}
         >
-          Logga in
+          {loading ? "Loggar in..." : "Logga in"}
         </button>
+
+        <p className="text-sm text-gray-700 text-center mt-4">
+          Har du inget konto?{" "}
+          <a
+            href="/register"
+            className="text-yellow-600 hover:underline font-semibold"
+          >
+            Skapa konto
+          </a>
+        </p>
       </form>
     </div>
   );

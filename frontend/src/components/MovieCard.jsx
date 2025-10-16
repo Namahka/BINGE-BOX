@@ -1,13 +1,22 @@
-import { useFavorites } from "../context/FavoritesContext";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Star } from "lucide-react";
+import { useFavorites } from "../hooks/useFavorites";
+import LoginRequiredPopup from "./LoginRequiredPopup";
 
 export default function MovieCard({ movie }) {
   const { favorites, toggleFavorite } = useFavorites();
   const [showPopup, setShowPopup] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
 
-  const isFavorite = favorites.some((f) => f.movieId === movie.id);
+  // 🧠 Håll stjärnan uppdaterad
+  useEffect(() => {
+    const fav = favorites.some(
+      (f) => Number(f.movieId) === Number(movie.id || movie.movieId)
+    );
+    setIsFavorite(fav);
+  }, [favorites, movie]);
 
+  // ⭐ Klick på stjärnan
   const handleFavoriteClick = async (e) => {
     e.stopPropagation();
 
@@ -17,7 +26,7 @@ export default function MovieCard({ movie }) {
       return;
     }
 
-    const el = document.getElementById(`fav-${movie.id}`);
+    const el = document.getElementById(`fav-${movie.id || movie.movieId}`);
     if (el) {
       el.classList.add("scale-125");
       setTimeout(() => el.classList.remove("scale-125"), 200);
@@ -26,88 +35,53 @@ export default function MovieCard({ movie }) {
     await toggleFavorite(movie);
   };
 
+  const poster =
+    movie.posterUrl ||
+    (movie.poster_path
+      ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
+      : "/placeholder.jpg");
+
   return (
     <div
-      className="bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-lg transition-transform hover:scale-[1.03] duration-200 flex flex-col h-[500px] relative"
-      onClick={(e) => {
-        if (e.target.tagName === "BUTTON") return;
-      }}
+      className="relative bg-black border border-gray-700 rounded-xl overflow-hidden hover:scale-[1.03] transition-transform duration-200 cursor-pointer"
+      onClick={() => (window.location.href = `/movie/${movie.id || movie.movieId}`)}
     >
-      {/* ⭐ FAVORIT-IKON */}
+      {/* ⭐ Stjärna */}
       <button
-        id={`fav-${movie.id}`}
+        id={`fav-${movie.id || movie.movieId}`}
         onClick={handleFavoriteClick}
-        className={`absolute top-3 right-3 p-2 rounded-full transition-transform ${
-          isFavorite ? "text-yellow-400" : "text-gray-400 hover:text-yellow-300"
+        className={`absolute top-2 right-2 p-2 rounded-full transition-transform z-10 ${
+          isFavorite
+            ? "text-yellow-400 bg-black/80"
+            : "text-gray-400 bg-black/70 hover:text-yellow-300"
         }`}
       >
-        <Star
-          fill={isFavorite ? "currentColor" : "none"}
-          strokeWidth={2}
-          size={22}
-        />
+        <Star fill={isFavorite ? "currentColor" : "none"} strokeWidth={2} size={22} />
       </button>
 
-      {/* 🎬 Filmens bild */}
-      <div className="w-full h-[280px] bg-white flex items-center justify-center">
-        {movie.posterUrl ? (
-          <img
-            src={movie.posterUrl}
-            alt={movie.title}
-            className="w-full h-full object-contain"
-          />
-        ) : (
-          <div className="text-gray-500 text-sm">Ingen bild</div>
-        )}
-      </div>
+      {/* 🎬 Bild */}
+      <img src={poster} alt={movie.title} className="w-full h-[300px] object-cover" />
 
       {/* 📄 Info */}
-      <div className="flex-1 flex flex-col justify-between p-4">
-        <h3 className="text-black font-semibold text-lg truncate mb-1">
-          {movie.title || "Untitled"}
+      <div className="p-3 text-center text-white">
+        <h3 className="text-md font-semibold text-yellow-400 truncate mb-1">
+          {movie.title || "Okänd titel"}
         </h3>
-
-        {movie.rating && (
-          <p className="text-black text-sm mb-1">
-            ⭐ {movie.rating.toFixed(1)}
+        <p className="text-xs text-gray-400 italic mb-1">
+          {movie.genre ||
+            (movie.genres?.[0]?.name ? movie.genres[0].name : "Okänd genre")}
+        </p>
+        {(movie.rating || movie.vote_average) && (
+          <p className="text-sm text-yellow-300 mb-1">
+            ⭐ {(movie.rating || movie.vote_average).toFixed(1)}
           </p>
         )}
-
-        <p className="text-black text-sm line-clamp-3 leading-snug">
+        <p className="text-xs text-gray-400 line-clamp-3 leading-snug">
           {movie.overview || "Ingen beskrivning tillgänglig."}
-        </p>
-
-        <p className="text-slate-400 text-xs mt-2 italic truncate">
-          {movie.genre || "Okänd genre"}
         </p>
       </div>
 
-      {/* 🔒 Popup */}
-      {showPopup && (
-        <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white rounded-2xl">
-          <p className="mb-3">Du måste vara inloggad för att spara favoriter</p>
-          <div className="flex gap-3">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                window.location.href = "/login";
-              }}
-              className="bg-yellow-400 text-black px-3 py-1 rounded"
-            >
-              Logga in
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                window.location.href = "/register";
-              }}
-              className="bg-gray-700 px-3 py-1 rounded"
-            >
-              Skapa konto
-            </button>
-          </div>
-        </div>
-      )}
+      {showPopup && <LoginRequiredPopup onClose={() => setShowPopup(false)} />}
     </div>
   );
 }

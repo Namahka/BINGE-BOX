@@ -1,13 +1,15 @@
-import { createContext, useContext, useEffect, useState } from "react";
+/* eslint-disable react-refresh/only-export-components */
+import { createContext, useEffect, useState } from "react";
 import { getProfile } from "../api";
 
-const AuthContext = createContext();
+// 🟡 Skapa context
+export const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // 🧠 Hämtar profil men tar inte bort token om servern är nere
+  // 🧠 Hämta användarprofil vid start
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -21,8 +23,7 @@ export function AuthProvider({ children }) {
         const data = await getProfile();
         setUser(data);
       } catch (err) {
-        console.warn("⚠️ Kunde inte hämta profil just nu (men token finns kvar)");
-        // ❗ Ta INTE bort token om servern inte svarar
+        console.warn("⚠️ Kunde inte hämta profil (token finns kvar)", err);
       } finally {
         setLoading(false);
       }
@@ -31,14 +32,14 @@ export function AuthProvider({ children }) {
     fetchProfile();
   }, []);
 
-  // ✅ Vid login
+  // ✅ Login
   const login = (token, userData) => {
     localStorage.setItem("token", token);
     setUser(userData);
     window.dispatchEvent(new Event("authChange"));
   };
 
-  // ✅ Vid logout
+  // ✅ Logout
   const logout = () => {
     localStorage.removeItem("token");
     setUser(null);
@@ -50,8 +51,4 @@ export function AuthProvider({ children }) {
       {children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth() {
-  return useContext(AuthContext);
 }

@@ -57,29 +57,42 @@ namespace Binge_Box.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Genre")
-                        .HasColumnType("nvarchar(max)");
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<int>("MovieId")
                         .HasColumnType("int");
 
+                    b.Property<string>("Overview")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
                     b.Property<string>("PosterUrl")
-                        .HasColumnType("nvarchar(max)");
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<double?>("Rating")
                         .HasColumnType("float");
 
                     b.Property<string>("Title")
                         .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
 
                     b.Property<int>("UserId")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UserId", "MovieId")
+                        .IsUnique();
 
                     b.ToTable("Favorites");
                 });
@@ -92,19 +105,22 @@ namespace Binge_Box.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("FollowerId")
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("FollowedId")
                         .HasColumnType("int");
 
-                    b.Property<int>("FollowingId")
+                    b.Property<int>("FollowerId")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("FollowedId");
+
                     b.HasIndex("FollowerId");
 
-                    b.HasIndex("FollowingId");
-
-                    b.ToTable("Followers");
+                    b.ToTable("Follows", (string)null);
                 });
 
             modelBuilder.Entity("BingeBox.Models.Movie", b =>
@@ -222,34 +238,23 @@ namespace Binge_Box.Migrations
                     b.ToTable("Users");
                 });
 
-            modelBuilder.Entity("BingeBox.Models.Favorite", b =>
-                {
-                    b.HasOne("BingeBox.Models.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("BingeBox.Models.Follower", b =>
                 {
+                    b.HasOne("BingeBox.Models.User", "FollowedUser")
+                        .WithMany()
+                        .HasForeignKey("FollowedId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
                     b.HasOne("BingeBox.Models.User", "FollowerUser")
                         .WithMany()
                         .HasForeignKey("FollowerId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.HasOne("BingeBox.Models.User", "FollowingUser")
-                        .WithMany()
-                        .HasForeignKey("FollowingId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
+                    b.Navigation("FollowedUser");
 
                     b.Navigation("FollowerUser");
-
-                    b.Navigation("FollowingUser");
                 });
 
             modelBuilder.Entity("BingeBox.Models.Product", b =>

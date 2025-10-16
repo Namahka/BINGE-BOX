@@ -24,18 +24,22 @@ namespace BingeBox.Data
                 entity.ToTable("Follows");
                 entity.HasKey(f => f.Id);
 
-                // 🔹 En användare kan följa många andra
                 entity.HasOne(f => f.FollowerUser)
-                    .WithMany() // ingen navigation på User-sidan behövs just nu
+                    .WithMany()
                     .HasForeignKey(f => f.FollowerId)
                     .OnDelete(DeleteBehavior.NoAction);
 
-                // 🔹 En användare kan följas av många andra
                 entity.HasOne(f => f.FollowedUser)
-                    .WithMany() // samma här
+                    .WithMany()
                     .HasForeignKey(f => f.FollowedId)
                     .OnDelete(DeleteBehavior.NoAction);
             });
+
+            // 💎 Förhindra dubbletter i Favorites
+            modelBuilder.Entity<Favorite>()
+                .HasIndex(f => new { f.UserId, f.MovieId })
+                .IsUnique();
         }
+
     }
 }

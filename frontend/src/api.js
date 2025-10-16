@@ -200,70 +200,6 @@ export async function searchUsers(query) {
 }
 
 // ===============================
-// ⭐ FAVORITER
-// ===============================
-export async function toggleFavorite(movie) {
-  const token = localStorage.getItem("token");
-  if (!token) throw new Error("Ingen token sparad");
-
-  const res = await fetch(`${API_URL}/api/favorites/toggle`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({
-      movieId: movie.id,
-      title: movie.title,
-      posterUrl: movie.posterUrl,
-      rating: movie.rating,
-      genre: movie.genre || "Okänd genre",
-    }),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    console.error("❌ API-fel:", errText);
-    throw new Error("Misslyckades uppdatera favoriter");
-  }
-
-  return await res.json();
-}
-
-export async function getFavorites() {
-  const token = localStorage.getItem("token");
-  if (!token) throw new Error("Ingen token sparad");
-
-  const res = await fetch(`${API_URL}/api/favorites`, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/json",
-    },
-  });
-
-  if (!res.ok) throw new Error("Kunde inte hämta favoriter");
-  return await res.json();
-}
-export async function getUserFavorites(userId) {
-  const token = localStorage.getItem("token");
-  if (!token) throw new Error("Ingen token sparad – logga in igen.");
-
-  const res = await fetch(`${API_URL}/api/favorites/user/${userId}`, {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  if (!res.ok)
-    throw new Error(`Kunde inte hämta favoriter för användare ${userId}`);
-  return await res.json();
-}
-
-
-// ===============================
 // 👤 Hämta användare via ID
 // ===============================
 export async function getUserById(id) {
@@ -315,6 +251,125 @@ export async function isFollowing(userId) {
 }
 
 // ===============================
+// 💾 FAVORITSYSTEM – BINGE BOX
+// ===============================
+const FAVORITES_KEY = "guestFavorites";
+
+// 🟢 Hämta favoriter (inloggad eller gäst)
+export async function getFavorites() {
+  const token = localStorage.getItem("token");
+
+  // Gästläge — hämta från localStorage
+  if (!token) {
+    return JSON.parse(localStorage.getItem(FAVORITES_KEY) || "[]");
+  }
+
+  // Inloggad användare → backend
+  const res = await fetch(`${API_URL}/api/favorites`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json",
+    },
+  });
+
+  if (!res.ok) throw new Error("Kunde inte hämta favoriter");
+  return await res.json();
+}
+
+// 🟣 Hämta favoriter för specifik användare (profilsidor)
+export async function getUserFavorites(userId) {
+  if (!userId) throw new Error("userId saknas i getUserFavorites");
+
+  const res = await fetch(`${API_URL}/api/favorites/user/${userId}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+  });
+
+  if (!res.ok) {
+    const msg = await res.text();
+    console.error("❌ Kunde inte hämta användarens favoriter:", msg);
+    throw new Error("Misslyckades hämta användarens favoriter");
+  }
+
+  return await res.json();
+}
+
+// ⭐ Lägg till / ta bort favorit (toggle)
+export async function toggleFavorite(movie) {
+  const token = localStorage.getItem("token");
+
+  // ✅ Normalisera MovieId
+  const movieId = Number(
+    movie.movieId || movie.id || movie.tmdbId || movie.tmdb_id
+  );
+
+  if (!movieId) {
+    console.error("❌ Ingen giltig movieId hittades:", movie);
+    throw new Error("Ogiltigt film-ID");
+  }
+
+  // 🔹 Gästläge — lagra lokalt
+  if (!token) {
+    const FAVORITES_KEY = "guestFavorites";
+    const localFavs = JSON.parse(localStorage.getItem(FAVORITES_KEY) || "[]");
+    const exists = localFavs.some((f) => f.movieId === movieId);
+
+    const updated = exists
+      ? localFavs.filter((f) => f.movieId !== movieId)
+      : [
+          ...localFavs,
+          {
+            movieId,
+            title: movie.title,
+            posterUrl:
+              movie.posterUrl ||
+              (movie.poster_path
+                ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
+                : ""),
+            genre: movie.genre || "Okänd genre",
+            rating: movie.rating || movie.vote_average || 0,
+            overview: movie.overview || "",
+          },
+        ];
+
+    localStorage.setItem(FAVORITES_KEY, JSON.stringify(updated));
+    return { favorite: !exists };
+  }
+
+  // 🔸 Inloggad användare → backend toggle
+  const res = await fetch(`${API_URL}/api/favorites/toggle`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      movieId,
+      title: movie.title,
+      posterUrl:
+        movie.posterUrl ||
+        (movie.poster_path
+          ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
+          : ""),
+      genre: movie.genre || "Okänd genre",
+      rating: movie.rating || movie.vote_average || 0,
+      overview: movie.overview || "",
+    }),
+  });
+
+  if (!res.ok) {
+    const msg = await res.text();
+    console.error("❌ API-fel:", msg);
+    throw new Error("Misslyckades uppdatera favoriter");
+  }
+
+  const result = await res.json();
+  return result;
+}
+
+
+// ===============================
 // 👥 FÖLJARE & FÖLJER (med profilbildfix)
 // ===============================
 export async function getFollowers(userId) {
@@ -362,3 +417,4 @@ export async function getFollowing(userId) {
       : "/default-avatar.png",
   }));
 }
+
