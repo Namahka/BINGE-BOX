@@ -13,7 +13,5 @@ namespace BingeBox.Models
 
         [Required]
         public string Password { get; set; } = string.Empty;
-
-        public string? ProfileImageUrl { get; set; }
     }
 }

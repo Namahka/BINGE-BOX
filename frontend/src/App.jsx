@@ -5,6 +5,8 @@ import {
   Route,
   useNavigate,
   useLocation,
+  Navigate,
+  Link,
 } from "react-router-dom";
 import { getPopularMovies, searchMovies, searchUsers } from "./api";
 
@@ -18,20 +20,17 @@ import Profile from "./pages/Profile";
 import Register from "./pages/Register";
 import UserMenu from "./components/UserMenu";
 import Settings from "./pages/Settings";
-import { Star } from "lucide-react";
-
+import { Star, Key } from "lucide-react";
 import UserProfile from "./pages/UserProfile";
-
-
-
-
-
+import { useAuth } from "./hooks/useAuth";
+import AdminPanel from "./pages/AdminPanel";
 
 // ===============================
 // 🟡 HEADER (Titel + User dropdown)
 // ===============================
 function Header({ onSearch, onClearSearch, searchRef }) {
   const navigate = useNavigate();
+  const { user } = useAuth(); // 👈 Hämta inloggad användare
 
   const handleLogoClick = () => {
     onClearSearch();
@@ -49,20 +48,27 @@ function Header({ onSearch, onClearSearch, searchRef }) {
           BINGE BOX
         </h1>
 
-        {/* 👤 */}
+        {/* 👤 + 🗝️ Admin-ikon */}
         <div className="absolute right-6 top-2 flex gap-4 items-center">
-      
+          {user?.role === "Admin" && (
+            <Link to="/admin" title="Admin Panel">
+              <Key className="w-6 h-6 text-yellow-400 hover:text-yellow-300 transition-transform hover:scale-110" />
+            </Link>
+          )}
           <UserMenu />
         </div>
       </div>
 
       <div className="max-w-xl mx-auto mt-4">
-        <SearchBar ref={searchRef} onSearch={onSearch} onClearSearch={onClearSearch} />
+        <SearchBar
+          ref={searchRef}
+          onSearch={onSearch}
+          onClearSearch={onClearSearch}
+        />
       </div>
     </header>
   );
 }
-
 
 // ===============================
 // 🧩 HUVUDSIDA
@@ -112,48 +118,44 @@ function HomePage({ movies, mode, query, category, onBack, loading }) {
           </p>
         )}
 
-   
-    {category === "members"
-  ? movies.map((u) => (
-      <div
-        key={u.id}
-        onClick={() => navigate(`/user/${u.id}`)}   // ✅ FIXAD
-        className="cursor-pointer bg-yellow-500 hover:bg-yellow-400 text-black rounded-xl p-4 flex flex-col items-center justify-center transition-transform hover:scale-105 shadow-md"
-      >
-        <img
-          src={u.profileImageUrl || "/default-avatar.png"}
-          alt={u.username}
-          className="w-24 h-24 rounded-full object-cover border-2 border-black mb-3"
-        />
-        <p className="font-semibold text-center">{u.username}</p>
-      </div>
-    ))
-
-  : movies.map((m) => (
-      <div
-        key={m.id}
-        onClick={() =>
-          navigate(
-            m.mediaType === "person"
-              ? `/person/${m.id}`
-              : `/${m.mediaType || "movie"}/${m.id}`,
-            {
-              state: {
-                mediaType: m.mediaType || "movie",
-                fromSearch: mode === "search",
-                query,
-                category,
-              },
-            }
-          )
-        }
-        className="cursor-pointer hover:scale-105 transition-transform duration-200"
-      >
-        <MovieCard movie={m} />
-      </div>
-    ))}
-
-
+        {category === "members"
+          ? movies.map((u) => (
+              <div
+                key={u.id}
+                onClick={() => navigate(`/user/${u.id}`)} // ✅ FIXAD
+                className="cursor-pointer bg-yellow-500 hover:bg-yellow-400 text-black rounded-xl p-4 flex flex-col items-center justify-center transition-transform hover:scale-105 shadow-md"
+              >
+                <img
+                  src={u.profileImageUrl || "/default-avatar.png"}
+                  alt={u.username}
+                  className="w-24 h-24 rounded-full object-cover border-2 border-black mb-3"
+                />
+                <p className="font-semibold text-center">{u.username}</p>
+              </div>
+            ))
+          : movies.map((m) => (
+              <div
+                key={m.id}
+                onClick={() =>
+                  navigate(
+                    m.mediaType === "person"
+                      ? `/person/${m.id}`
+                      : `/${m.mediaType || "movie"}/${m.id}`,
+                    {
+                      state: {
+                        mediaType: m.mediaType || "movie",
+                        fromSearch: mode === "search",
+                        query,
+                        category,
+                      },
+                    }
+                  )
+                }
+                className="cursor-pointer hover:scale-105 transition-transform duration-200"
+              >
+                <MovieCard movie={m} />
+              </div>
+            ))}
 
         {/* 🌀 Laddnings-overlay */}
         {loading && (
@@ -166,6 +168,19 @@ function HomePage({ movies, mode, query, category, onBack, loading }) {
   );
 }
 
+// ===============================
+// 🔒 ADMIN-SKYDD
+// ===============================
+function ProtectedAdminRoute({ children }) {
+  const { user, loading } = useAuth();
+
+  if (loading)
+    return <p className="text-center text-gray-400 mt-10">Loading...</p>;
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role !== "Admin") return <Navigate to="/" replace />;
+
+  return children;
+}
 
 // ===============================
 // 🚀 APP-INNEHÅLL
@@ -213,108 +228,115 @@ function AppContent() {
     }
   }, [location.pathname]);
 
-const handleSearch = async (q, cat) => {
-  console.log("🔍 handleSearch TRIGGAD", q, cat);
-  if (!q || !q.trim()) {
-    console.log("⚠️ Ingen sökterm angiven, avbryter sök.");
-    return;
-  }
-
-  setLoading(true);
-  setError(null);
-
-  try {
-    let data = [];
-
-    if (cat === "members") {
-      console.log("👥 Söker medlemmar...");
-      data = await searchUsers(q); // 👉 använder nya funktionen från api.js
-    } else {
-      console.log("🎬 Söker filmer/serier...");
-      data = await searchMovies(q, cat);
+  const handleSearch = async (q, cat) => {
+    console.log("🔍 handleSearch TRIGGAD", q, cat);
+    if (!q || !q.trim()) {
+      console.log("⚠️ Ingen sökterm angiven, avbryter sök.");
+      return;
     }
 
-    console.log("📦 DATA FRÅN API:", data);
-    const results = Array.isArray(data) ? data : [];
+    setLoading(true);
+    setError(null);
 
-    const sorted =
-      cat === "members"
-        ? results.sort((a, b) => a.username.localeCompare(b.username)) // sortera medlemmar A–Ö
-        : [
-            ...results.filter((item) => item.mediaType === "person"),
-            ...results.filter((item) => item.mediaType !== "person"),
-          ];
+    try {
+      let data = [];
 
-    setMovies(sorted);
-    setQuery(q);
-    setCategory(cat);
-    setMode("search");
+      if (cat === "members") {
+        console.log("👥 Söker medlemmar...");
+        data = await searchUsers(q);
+      } else {
+        console.log("🎬 Söker filmer/serier...");
+        data = await searchMovies(q, cat);
+      }
+
+      console.log("📦 DATA FRÅN API:", data);
+      const results = Array.isArray(data) ? data : [];
+
+      const sorted =
+        cat === "members"
+          ? results.sort((a, b) => a.username.localeCompare(b.username))
+          : [
+              ...results.filter((item) => item.mediaType === "person"),
+              ...results.filter((item) => item.mediaType !== "person"),
+            ];
+
+      setMovies(sorted);
+      setQuery(q);
+      setCategory(cat);
+      setMode("search");
+
+      if (searchRef.current) searchRef.current.clearInput();
+      navigate("/");
+    } catch (err) {
+      console.error("⚠️ Fel vid sökning:", err);
+      setError("Kunde inte hämta sökresultat.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 🧹 Rensa sökning (logga, back-to-popular)
+  const clearSearch = async () => {
+    setQuery("");
+    setCategory("all");
+    setMode("popular");
 
     if (searchRef.current) searchRef.current.clearInput();
-    navigate("/");
-  } catch (err) {
-    console.error("⚠️ Fel vid sökning:", err);
-    setError("Kunde inte hämta sökresultat.");
-  } finally {
-    setLoading(false);
-  }
-};
 
-// 🧹 Rensa sökning (logga, back-to-popular)
-const clearSearch = async () => {
-  setQuery("");
-  setCategory("all");
-  setMode("popular");
+    try {
+      setLoading(true);
+      const data = await getPopularMovies();
+      setMovies(data);
+      navigate("/");
+    } catch (err) {
+      console.error("⚠️ Fel vid hämtning:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  if (searchRef.current) searchRef.current.clearInput();
-
-  try {
-    setLoading(true);
-    const data = await getPopularMovies();
-    setMovies(data);
-    navigate("/");
-  } catch (err) {
-    console.error("⚠️ Fel vid hämtning:", err);
-  } finally {
-    setLoading(false);
-  }
-};
-
-return (
-  <>
-    <Header
-      onSearch={handleSearch}
-      onClearSearch={clearSearch}
-      searchRef={searchRef}
-    />
-
-    {error && <p className="text-center text-red-500 mt-10">{error}</p>}
-
-    <Routes>
-      <Route
-        path="/"
-        element={
-          <HomePage
-            movies={movies}
-            mode={mode}
-            query={query}
-            category={category}
-            onBack={clearSearch}
-            loading={loading}
-          />
-        }
+  return (
+    <>
+      <Header
+        onSearch={handleSearch}
+        onClearSearch={clearSearch}
+        searchRef={searchRef}
       />
 
+      {error && <p className="text-center text-red-500 mt-10">{error}</p>}
+
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <HomePage
+              movies={movies}
+              mode={mode}
+              query={query}
+              category={category}
+              onBack={clearSearch}
+              loading={loading}
+            />
+          }
+        />
         <Route path="/movie/:id" element={<MovieDetails />} />
         <Route path="/tv/:id" element={<MovieDetails />} />
         <Route path="/person/:id" element={<PersonDetails />} />
         <Route path="/login" element={<Login />} />
-<Route path="/profile" element={<Profile />} />
-<Route path="/register" element={<Register />} />
-<Route path="/settings" element={<Settings />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/user/:id" element={<UserProfile />} />
 
-<Route path="/user/:id" element={<UserProfile />} />
-
+        {/* 👑 Endast admin */}
+        <Route
+          path="/admin"
+          element={
+            <ProtectedAdminRoute>
+              <AdminPanel />
+            </ProtectedAdminRoute>
+          }
+        />
       </Routes>
     </>
   );

@@ -36,7 +36,7 @@ export function FavoritesProvider({ children }) {
   useEffect(() => {
     loadFavorites();
 
-    // 🟡 Uppdatera favoriter om token ändras (login/logout)
+    // 🔄 Uppdatera favoriter när token ändras (login/logout)
     const onAuthChange = () => loadFavorites();
     window.addEventListener("authChange", onAuthChange);
     return () => window.removeEventListener("authChange", onAuthChange);
@@ -47,7 +47,7 @@ export function FavoritesProvider({ children }) {
     setFavorites([]);
   }
 
-  // ⭐ Toggle favorit
+  // ⭐ Toggle favorit — uppdaterar direkt i UI innan backend-anropet är klart
   async function toggleFavorite(movie, showLoginPopup) {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -55,22 +55,19 @@ export function FavoritesProvider({ children }) {
       return;
     }
 
-    // 🧩 Normalisera filmdata (samma format överallt)
     const movieId =
-      movie.id ||
-      movie.movieId ||
-      movie.tmdbId ||
-      movie.externalId ||
-      0;
+      Number(movie.movieId) && Number(movie.movieId) > 0
+        ? Number(movie.movieId)
+        : Number(movie.id);
 
     if (!movieId) {
-      console.warn("⚠️ Ogiltigt MovieId:", movie);
+      console.warn("⚠️ Ogiltigt TMDb MovieId:", movie);
       return;
     }
 
     const payload = {
       movieId,
-      title: movie.title || movie.name || "Okänd titel",
+      title: movie.title?.trim() || movie.name || "Okänd titel",
       posterUrl:
         movie.posterUrl ||
         (movie.poster_path
@@ -85,6 +82,17 @@ export function FavoritesProvider({ children }) {
       overview: movie.overview || "",
     };
 
+    // ⚡ Direkt-UI-uppdatering (optimistisk uppdatering)
+    setFavorites((prev) => {
+      const exists = prev.some((f) => Number(f.movieId) === movieId);
+      if (exists) {
+        return prev.filter((f) => Number(f.movieId) !== movieId);
+      } else {
+        return [...prev, payload];
+      }
+    });
+
+    // 🔄 Kör backend-toggle i bakgrunden
     try {
       const res = await fetch(`${API_URL}/api/favorites/toggle`, {
         method: "POST",
@@ -96,19 +104,18 @@ export function FavoritesProvider({ children }) {
       });
 
       if (!res.ok) throw new Error("Misslyckades uppdatera favorit");
-
       const result = await res.json();
 
-      // 🔄 Uppdatera lokalt utan dubbletter
+      // 🧹 Säkerställ att local state matchar backend-resultatet
       setFavorites((prev) => {
-        const cleaned = prev.filter(
-          (f) => Number(f.movieId) !== Number(movieId)
-        );
+        const cleaned = prev.filter((f) => Number(f.movieId) !== movieId);
         if (result.favorite) return [...cleaned, payload];
         return cleaned;
       });
     } catch (err) {
       console.error("⚠️ toggleFavorite-fel:", err);
+      // 🩹 Återställ från backend om något gick fel
+      loadFavorites();
     }
   }
 
@@ -118,7 +125,7 @@ export function FavoritesProvider({ children }) {
         favorites,
         toggleFavorite,
         reloadFavorites: loadFavorites,
-        clearFavorites, // 🧹 för logout
+        clearFavorites,
         loading,
       }}
     >

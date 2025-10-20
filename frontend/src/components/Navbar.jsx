@@ -1,10 +1,12 @@
-// src/components/Navbar.jsx
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import SearchBar from "./SearchBar";
 import { useSearch } from "../context/SearchContext";
+import { useAuth } from "../hooks/useAuth";
+import { Key } from "lucide-react";
 
 export default function Navbar() {
   const { handleSearch } = useSearch();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const handleNavbarSearch = (q, cat) => {
@@ -23,11 +25,18 @@ export default function Navbar() {
           BINGE BOX
         </a>
 
-        {/* 🔍 Right: Search + Sign in */}
+        {/* 🔍 Right: Search + Admin + Sign in */}
         <div className="flex items-center gap-4">
           <div className="hidden sm:block w-56">
             <SearchBar compact onSearch={handleNavbarSearch} />
           </div>
+
+          {/* 👑 Adminnyckel – endast admin */}
+          {user?.role === "Admin" && (
+            <Link to="/admin" title="Admin Panel">
+              <Key className="w-5 h-5 text-yellow-400 hover:text-yellow-300" />
+            </Link>
+          )}
 
           <button className="text-sm px-3 py-1.5 rounded-md border border-slate-700 hover:bg-slate-800 text-slate-200">
             Sign in

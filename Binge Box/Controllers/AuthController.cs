@@ -23,7 +23,7 @@ namespace BingeBox.Controllers
         }
 
         // ==========================
-        // REGISTER
+        // REGISTER (endast username, email, password)
         // ==========================
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest req)
@@ -36,8 +36,8 @@ namespace BingeBox.Controllers
                 Username = req.Username,
                 Email = req.Email,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.Password),
-                ProfileImageUrl = req.ProfileImageUrl,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                Role = "User" // Alla nya användare blir vanliga användare
             };
 
             _context.Users.Add(user);
@@ -47,15 +47,17 @@ namespace BingeBox.Controllers
             {
                 user.Id,
                 user.Username,
-                user.Email
+                user.Email,
+                user.Role
             });
         }
 
-        // 🟠 LOGIN (både email och användarnamn)
+        // ==========================
+        // LOGIN (stöd för både email & username)
+        // ==========================
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest req)
         {
-            // Leta upp användare baserat på antingen email eller användarnamn
             var user = await _context.Users
                 .FirstOrDefaultAsync(u => u.Email == req.Identifier || u.Username == req.Identifier);
 
@@ -65,14 +67,17 @@ namespace BingeBox.Controllers
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.UTF8.GetBytes(_config["Jwt:Key"]);
 
+            var claims = new List<Claim>
+            {
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new Claim(ClaimTypes.Name, user.Username),
+                new Claim(ClaimTypes.Email, user.Email),
+                new Claim(ClaimTypes.Role, user.Role)
+            };
+
             var tokenDescriptor = new SecurityTokenDescriptor
             {
-                Subject = new ClaimsIdentity(new[]
-                {
-            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new Claim(ClaimTypes.Name, user.Username),
-            new Claim(ClaimTypes.Email, user.Email)
-        }),
+                Subject = new ClaimsIdentity(claims),
                 Expires = DateTime.UtcNow.AddHours(3),
                 SigningCredentials = new SigningCredentials(
                     new SymmetricSecurityKey(key),
@@ -86,8 +91,15 @@ namespace BingeBox.Controllers
             {
                 access_token = jwt,
                 token_type = "Bearer",
-                expires_in = 10800
+                expires_in = 10800,
+                user = new
+                {
+                    user.Id,
+                    user.Username,
+                    user.Email,
+                    user.Role
+                }
             });
         }
     }
-    }
+}

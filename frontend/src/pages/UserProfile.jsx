@@ -34,6 +34,8 @@ export default function UserProfile() {
     async function loadUser() {
       try {
         setLoading(true);
+        console.log("🔍 Laddar profil med ID:", id, "Inloggad användare:", currentUser?.id);
+
         const data = await getUserById(id);
         setUser(data);
 

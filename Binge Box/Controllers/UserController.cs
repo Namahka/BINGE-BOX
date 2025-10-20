@@ -47,7 +47,8 @@ namespace BingeBox.Controllers
                 user.Email,
                 ProfileImageUrl = fullImageUrl,
                 user.Bio,
-                user.CreatedAt
+                user.CreatedAt,
+                Role = user.Role ?? "User" // ✅ FIX: lägg till roll här också
             });
         }
 
@@ -109,6 +110,7 @@ namespace BingeBox.Controllers
                 user.Bio
             });
         }
+
         // ===============================
         // 🔍 Sök användare
         // GET /api/User/search?query=namn
@@ -134,7 +136,6 @@ namespace BingeBox.Controllers
 
             return Ok(users);
         }
-
 
         // ===============================
         // 👤 Hämta annan användare via ID
@@ -163,12 +164,13 @@ namespace BingeBox.Controllers
                 user.Email,
                 ProfileImageUrl = fullImageUrl,
                 user.Bio,
-                user.CreatedAt
+                user.CreatedAt,
+                Role = user.Role ?? "User" // 👑 behåll för sökning via ID också
             });
         }
     }
 
-        public class UpdateProfileRequest
+    public class UpdateProfileRequest
     {
         public string? Bio { get; set; }
         public IFormFile? ProfileImage { get; set; }

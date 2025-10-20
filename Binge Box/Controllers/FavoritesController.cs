@@ -58,12 +58,15 @@ namespace BingeBox.Controllers
             {
                 var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-                if (favorite == null || favorite.MovieId <= 0)
-                    return BadRequest("Ogiltig favoritdata.");
+                if (favorite == null)
+                    return BadRequest("Ingen favoritdata mottagen.");
 
-                // 🔍 Hitta om filmen redan finns
+                // 🎯 Säkerställ rätt MovieId
+                var realMovieId = favorite.MovieId > 0 ? favorite.MovieId : favorite.Id;
+
+                // 🔍 Leta upp befintlig favorit (oavsett varifrån den kommer)
                 var existing = await _context.Favorites
-                    .FirstOrDefaultAsync(f => f.UserId == userId && f.MovieId == favorite.MovieId);
+                    .FirstOrDefaultAsync(f => f.UserId == userId && f.MovieId == realMovieId);
 
                 if (existing != null)
                 {
@@ -72,20 +75,22 @@ namespace BingeBox.Controllers
                     return Ok(new { favorite = false });
                 }
 
-                // 🧹 Säkerhet: ta bort ev. dubbletter
+                // 🧹 Dublettskydd – ta bort eventuella gamla rader med samma MovieId
                 var duplicates = await _context.Favorites
-                    .Where(f => f.UserId == userId && f.MovieId == favorite.MovieId)
+                    .Where(f => f.UserId == userId && (f.MovieId == favorite.MovieId || f.MovieId == favorite.Id))
                     .ToListAsync();
+
                 if (duplicates.Any())
                 {
                     _context.Favorites.RemoveRange(duplicates);
                     await _context.SaveChangesAsync();
                 }
 
+                // 🆕 Skapa ny favorit
                 var newFav = new Favorite
                 {
                     UserId = userId,
-                    MovieId = favorite.MovieId,
+                    MovieId = realMovieId,
                     Title = favorite.Title?.Trim() ?? "Okänd titel",
                     PosterUrl = favorite.PosterUrl ?? string.Empty,
                     Genre = string.IsNullOrWhiteSpace(favorite.Genre) ? "Okänd genre" : favorite.Genre.Trim(),
@@ -99,18 +104,13 @@ namespace BingeBox.Controllers
 
                 return Ok(new { favorite = true });
             }
-            catch (DbUpdateException dbEx)
-            {
-                // 🔒 Fångar unik constraint (UserId+MovieId)
-                Console.WriteLine($"⚠️ Unique constraint triggered: {dbEx.Message}");
-                return Ok(new { favorite = true });
-            }
             catch (Exception ex)
             {
                 Console.WriteLine($"❌ [FavoritesController.ToggleFavorite] {ex.Message}");
                 return StatusCode(500, new { message = "Internal server error", error = ex.Message });
             }
         }
+
 
         // 🟣 Hämta favoriter för en specifik användare
         [HttpGet("user/{userId}")]

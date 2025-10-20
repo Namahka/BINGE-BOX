@@ -1,44 +1,47 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Star } from "lucide-react";
-import {
-  getProfile,
-  getFollowers,
-  getFollowing,
-  getUserById,
-  toggleFavorite,
-  getFavorites,
-} from "../api";
+import { getProfile, getFollowers, getFollowing, getUserById } from "../api";
 import { useAuth } from "../hooks/useAuth";
+import { useFavorites } from "../hooks/useFavorites";
 
 export default function Profile() {
   const { user } = useAuth();
+  const { favorites, toggleFavorite, reloadFavorites } = useFavorites();
   const [bio, setBio] = useState("");
   const [previewImage, setPreviewImage] = useState("");
   const [followers, setFollowers] = useState([]);
   const [following, setFollowing] = useState([]);
-  const [favoritesList, setFavoritesList] = useState([]);
   const [view, setView] = useState("about");
   const [isEditing, setIsEditing] = useState(false);
+  const [favoritesList, setFavoritesList] = useState([]);
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
 
-  // 🔄 Ladda profil, följare/följer och favoriter
+  // 🧠 Ladda favoriter EN gång – ingen dependency på [favorites]
+  useEffect(() => {
+    console.log("🔄 useEffect: initial favorites från context:", favorites);
+    if (favorites && favorites.length > 0 && favoritesList.length === 0) {
+      setFavoritesList(favorites);
+    }
+  }, []); // 🔥 viktig — inte [favorites]
+
+  // 🔁 Ladda profil, följare, favoriter
   useEffect(() => {
     async function loadProfile() {
       try {
         const data = await getProfile();
+        console.log("👤 Profil-data hämtad:", data);
         setPreviewImage(data.profileImageUrl || "");
         setBio(data.bio || "");
 
-        const [f1, f2, favs] = await Promise.all([
+        const [f1, f2] = await Promise.all([
           getFollowers(data.id),
           getFollowing(data.id),
-          getFavorites(),
         ]);
 
-        const resolveUsers = async (list) => {
-          return Promise.all(
+        const resolveUsers = async (list) =>
+          Promise.all(
             list.map(async (f) => {
               const userId =
                 f.id || f.userId || f.followerId || f.followedId || f.followingId;
@@ -54,19 +57,10 @@ export default function Profile() {
               }
             })
           ).then((res) => res.filter(Boolean));
-        };
 
         setFollowers(await resolveUsers(f1));
         setFollowing(await resolveUsers(f2));
-
-        // 🔹 Ta bort dubbletter lokalt baserat på MovieId
-        const uniqueFavorites = Array.from(
-          new Map(
-            favs.map((m) => [Number(m.movieId || m.id), m])
-          ).values()
-        );
-
-        setFavoritesList(uniqueFavorites);
+        await reloadFavorites();
       } catch (err) {
         console.error("⚠️ Kunde inte hämta profil:", err);
       }
@@ -75,14 +69,14 @@ export default function Profile() {
     loadProfile();
   }, []);
 
-  // 📸 Byt profilbild
+  // 📸 Hantera profilbild
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     setPreviewImage(URL.createObjectURL(file));
   };
 
-  // 💾 Spara ändringar
+  // 💾 Spara profil
   const handleSave = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -111,30 +105,52 @@ export default function Profile() {
     }
   };
 
-  // ⭐ Lägg till eller ta bort favorit — utan dubbletter
-  const handleToggleFavorite = async (movie) => {
-    try {
-      await toggleFavorite(movie);
+  // ⭐ Favorit-toggle — med full logging
+  const handleToggleFavorite = async (movie, e) => {
+    if (e) e.stopPropagation();
+    const realMovieId = Number(movie.movieId ?? movie.id);
 
-      // Hämta senaste lista från backend
-      const updated = await getFavorites();
+    console.log("⭐ Klick på favorit:", {
+      realMovieId,
+      movie,
+      före: favoritesList.map((f) => f.movieId),
+    });
 
-      // Filtrera bort dubbletter baserat på MovieId
-      const unique = Array.from(
-        new Map(
-          updated.map((f) => [Number(f.movieId || f.id), f])
-        ).values()
+    // ⚡ Direkt borttagning från lokala listan
+    setFavoritesList((prev) => {
+      const updated = prev.filter(
+        (f) => Number(f.movieId ?? f.id) !== realMovieId
       );
+      console.log("🧹 Efter borttagning (UI):", updated.map((f) => f.movieId));
+      return updated;
+    });
 
-      setFavoritesList(unique);
+    try {
+      const payload = {
+        movieId: realMovieId,
+        title: movie.title,
+        posterUrl: movie.posterUrl,
+        genre: movie.genre,
+        rating: movie.rating,
+        overview: movie.overview,
+      };
+
+      const result = await toggleFavorite(payload);
+      console.log("✅ toggleFavorite klart – svar från backend:", result);
     } catch (err) {
-      console.error("⚠️ Kunde inte toggla favorit:", err);
+      console.error("⚠️ toggleFavorite-fel:", err);
+      // 🩹 lägg tillbaka vid fel
+      setFavoritesList((prev) => [...prev, movie]);
     }
+
+    console.log("🎬 Efter allt:", favoritesList.map((f) => f.movieId));
   };
+
+  // 🧪 Debug — skriv ut favoriter som renderas
+  console.log("🧩 Renderar favoriterList:", favoritesList.map((f) => f.movieId));
 
   return (
     <main className="min-h-screen bg-black text-white flex flex-col items-center py-10 px-4">
-      {/* 👤 Profilhuvud */}
       <img
         src={previewImage || "/default-avatar.png"}
         alt="Profilbild"
@@ -189,7 +205,7 @@ export default function Profile() {
         ))}
       </div>
 
-      {/* 📄 Innehåll */}
+      {/* Innehåll */}
       <section className="mt-6 w-full max-w-3xl text-center">
         {view === "about" && (
           <p className="text-gray-400">
@@ -200,7 +216,7 @@ export default function Profile() {
           </p>
         )}
 
-        {/* 🟡 FAVORITER */}
+        {/* Favoriter */}
         {view === "favorites" && (
           <section>
             <h2 className="text-xl font-bold text-yellow-400 mb-4">
@@ -222,10 +238,7 @@ export default function Profile() {
                       className="w-full h-64 object-cover"
                     />
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleToggleFavorite(m);
-                      }}
+                      onClick={(e) => handleToggleFavorite(m, e)}
                       className="absolute top-2 right-2 bg-black/70 p-1 rounded-full hover:bg-black transition"
                     >
                       <Star size={22} fill="#facc15" color="#facc15" />
@@ -245,7 +258,7 @@ export default function Profile() {
           </section>
         )}
 
-        {/* 🧍 Följare */}
+        {/* Följare */}
         {view === "followers" && (
           <ul className="mt-6 flex flex-col items-center gap-3">
             {followers.length > 0 ? (
@@ -269,7 +282,7 @@ export default function Profile() {
           </ul>
         )}
 
-        {/* 👥 Följer */}
+        {/* Följer */}
         {view === "following" && (
           <ul className="mt-6 flex flex-col items-center gap-3">
             {following.length > 0 ? (
