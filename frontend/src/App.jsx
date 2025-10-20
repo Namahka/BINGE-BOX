@@ -8,7 +8,8 @@ import {
   Navigate,
   Link,
 } from "react-router-dom";
-import { getPopularMovies, searchMovies, searchUsers } from "./api";
+import { getPopularMovies, searchMovies, searchUsers, getMovieOfTheWeek } from "./api";
+
 
 import SearchBar from "./components/SearchBar";
 import MovieCard from "./components/MovieCard";
@@ -24,6 +25,8 @@ import { Star, Key } from "lucide-react";
 import UserProfile from "./pages/UserProfile";
 import { useAuth } from "./hooks/useAuth";
 import AdminPanel from "./pages/AdminPanel";
+import AdminFeatured from "./pages/AdminFeatured";
+
 
 // ===============================
 // 🟡 HEADER (Titel + User dropdown)
@@ -71,10 +74,43 @@ function Header({ onSearch, onClearSearch, searchRef }) {
 }
 
 // ===============================
-// 🧩 HUVUDSIDA
+// 🧩 HUVUDSIDA (HomePage)
 // ===============================
 function HomePage({ movies, mode, query, category, onBack, loading }) {
   const navigate = useNavigate();
+  const [movieOfTheWeek, setMovieOfTheWeek] = useState(null);
+
+  // 🎬 Hämta Movie of the Week
+  useEffect(() => {
+    async function fetchMovieOfTheWeek() {
+      try {
+        const data = await getMovieOfTheWeek();
+        if (!data) return;
+
+        const fixed = {
+          ...data,
+          posterUrl:
+            data.posterUrl && data.posterUrl.startsWith("http")
+              ? data.posterUrl
+              : data.posterUrl
+              ? `https://image.tmdb.org/t/p/w500${data.posterUrl}`
+              : null,
+          backdropUrl:
+            data.backdropUrl && data.backdropUrl.startsWith("http")
+              ? data.backdropUrl
+              : data.backdropUrl
+              ? `https://image.tmdb.org/t/p/original${data.backdropUrl}`
+              : null,
+        };
+
+        setMovieOfTheWeek(fixed);
+      } catch (err) {
+        console.error("⚠️ Kunde inte hämta Movie of the Week:", err);
+      }
+    }
+
+    fetchMovieOfTheWeek();
+  }, []);
 
   const formatCategoryName = (key) => {
     switch (key) {
@@ -91,6 +127,7 @@ function HomePage({ movies, mode, query, category, onBack, loading }) {
 
   return (
     <main className="min-h-screen bg-black text-white px-4 py-8 relative">
+      {/* 🔍 Visar sökinfo */}
       {mode === "search" && (
         <>
           <p className="mt-4 text-center text-gray-300">
@@ -110,6 +147,54 @@ function HomePage({ movies, mode, query, category, onBack, loading }) {
         </>
       )}
 
+      {/* 💡 Visa Movie of the Week ENDAST när mode === "popular" */}
+      {mode === "popular" && movieOfTheWeek && (
+        <section
+          className="relative h-[500px] w-full overflow-hidden mb-10 rounded-xl cursor-pointer group"
+          onClick={() => navigate(`/movie/${movieOfTheWeek.movieId}`)}
+        >
+          <img
+            src={
+              movieOfTheWeek.backdropUrl ||
+              movieOfTheWeek.posterUrl ||
+              (movieOfTheWeek.backdrop_path
+                ? `https://image.tmdb.org/t/p/original${movieOfTheWeek.backdrop_path}`
+                : movieOfTheWeek.poster_path
+                ? `https://image.tmdb.org/t/p/w500${movieOfTheWeek.poster_path}`
+                : "/placeholder.jpg")
+            }
+            alt={movieOfTheWeek.title || "Movie of the Week"}
+            className="w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity duration-300"
+          />
+
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent"></div>
+
+          <div className="absolute bottom-10 left-10 max-w-xl text-white">
+            <h2 className="text-4xl font-bold mb-2 text-yellow-400">
+              Movie of the Week
+            </h2>
+            <h3 className="text-3xl font-semibold mb-2">
+              {movieOfTheWeek.title}
+            </h3>
+            <p className="text-sm text-gray-300 mb-3">
+              {movieOfTheWeek.genre || "No genre info"}
+            </p>
+            <p className="text-gray-200 line-clamp-3">
+              {movieOfTheWeek.overview || "No description available."}
+            </p>
+            <button
+              className="mt-4 px-5 py-2 bg-yellow-400 hover:bg-yellow-500 text-black font-semibold rounded-lg"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/movie/${movieOfTheWeek.movieId}`);
+              }}
+            >
+              More →
+            </button>
+          </div>
+        </section>
+      )}
+
       {/* 🎬 Filmlista */}
       <div className="mt-8 grid gap-6 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 relative">
         {movies.length === 0 && !loading && (
@@ -122,7 +207,7 @@ function HomePage({ movies, mode, query, category, onBack, loading }) {
           ? movies.map((u) => (
               <div
                 key={u.id}
-                onClick={() => navigate(`/user/${u.id}`)} // ✅ FIXAD
+                onClick={() => navigate(`/user/${u.id}`)}
                 className="cursor-pointer bg-yellow-500 hover:bg-yellow-400 text-black rounded-xl p-4 flex flex-col items-center justify-center transition-transform hover:scale-105 shadow-md"
               >
                 <img
@@ -157,7 +242,6 @@ function HomePage({ movies, mode, query, category, onBack, loading }) {
               </div>
             ))}
 
-        {/* 🌀 Laddnings-overlay */}
         {loading && (
           <div className="absolute inset-0 bg-black flex items-center justify-center rounded-lg">
             <div className="w-10 h-10 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin"></div>
@@ -167,6 +251,8 @@ function HomePage({ movies, mode, query, category, onBack, loading }) {
     </main>
   );
 }
+
+
 
 // ===============================
 // 🔒 ADMIN-SKYDD
@@ -329,15 +415,26 @@ function AppContent() {
         <Route path="/user/:id" element={<UserProfile />} />
 
         {/* 👑 Endast admin */}
-        <Route
-          path="/admin"
-          element={
-            <ProtectedAdminRoute>
-              <AdminPanel />
-            </ProtectedAdminRoute>
-          }
-        />
-      </Routes>
+         {/* 👑 Endast admin */}
+<Route
+  path="/admin"
+  element={
+    <ProtectedAdminRoute>
+      <AdminPanel />
+    </ProtectedAdminRoute>
+  }
+/>
+
+<Route
+  path="/admin/featured"
+  element={
+    <ProtectedAdminRoute>
+      <AdminFeatured />
+    </ProtectedAdminRoute>
+  }
+/>
+
+</Routes>
     </>
   );
 }

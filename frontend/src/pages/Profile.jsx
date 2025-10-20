@@ -161,14 +161,14 @@ export default function Profile() {
       </h2>
 
       <p className="text-gray-300 mt-2 text-center max-w-md">
-        {bio || "Ingen bio än."}
+        {bio || "Nothing to see here...Yet!."}
       </p>
 
       <button
         onClick={() => setIsEditing(true)}
         className="mt-4 px-5 py-2 bg-yellow-400 hover:bg-yellow-500 text-black font-semibold rounded-lg"
       >
-        Redigera profil
+        Edit profile
       </button>
 
       <div className="flex gap-6 mt-6">
@@ -177,14 +177,14 @@ export default function Profile() {
           className="text-gray-300 hover:text-yellow-400"
         >
           <span className="text-yellow-400 font-bold">{followers.length}</span>{" "}
-          Följare
+          Followers
         </button>
         <button
           onClick={() => setView("following")}
           className="text-gray-300 hover:text-yellow-400"
         >
           <span className="text-yellow-400 font-bold">{following.length}</span>{" "}
-          Följer
+       Following
         </button>
       </div>
 
@@ -200,7 +200,7 @@ export default function Profile() {
                 : "text-gray-400"
             }`}
           >
-            {tab === "about" ? "Om mig" : "Favoriter"}
+            {tab === "about" ? "About me" : "Favorites"}
           </button>
         ))}
       </div>
@@ -209,7 +209,7 @@ export default function Profile() {
       <section className="mt-6 w-full max-w-3xl text-center">
         {view === "about" && (
           <p className="text-gray-400">
-            Gick med:{" "}
+            Member since:{" "}
             {user?.createdAt
               ? new Date(user.createdAt).toLocaleDateString("sv-SE")
               : "Okänt datum"}
@@ -220,7 +220,7 @@ export default function Profile() {
         {view === "favorites" && (
           <section>
             <h2 className="text-xl font-bold text-yellow-400 mb-4">
-              Mina favoriter
+              My favorites
             </h2>
             {favoritesList.length === 0 ? (
               <p className="text-gray-500">Inga favoriter ännu.</p>
@@ -277,7 +277,7 @@ export default function Profile() {
                 </Link>
               ))
             ) : (
-              <p className="text-gray-500">Inga följare ännu.</p>
+              <p className="text-gray-500">No followers.</p>
             )}
           </ul>
         )}
@@ -301,7 +301,7 @@ export default function Profile() {
                 </Link>
               ))
             ) : (
-              <p className="text-gray-500">Följer ingen ännu.</p>
+              <p className="text-gray-500">Not following anyone</p>
             )}
           </ul>
         )}
@@ -319,11 +319,11 @@ export default function Profile() {
             </button>
 
             <h2 className="text-2xl font-bold text-yellow-400 mb-4">
-              Redigera profil
+             Edit Profile
             </h2>
 
             <div className="mb-5">
-              <p className="font-semibold mb-2 text-white">Profilbild</p>
+              <p className="font-semibold mb-2 text-white">Profile picture</p>
               <div className="flex items-center gap-4">
                 <img
                   src={previewImage || "/default-avatar.png"}
@@ -341,7 +341,7 @@ export default function Profile() {
             </div>
 
             <div className="mb-5">
-              <p className="font-semibold mb-2 text-white">Om mig</p>
+              <p className="font-semibold mb-2 text-white">About me</p>
               <textarea
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
@@ -355,13 +355,13 @@ export default function Profile() {
                 onClick={() => setIsEditing(false)}
                 className="px-4 py-2 rounded bg-yellow-400 hover:bg-yellow-500 text-black"
               >
-                Avbryt
+               Cancel
               </button>
               <button
                 onClick={handleSave}
                 className="px-4 py-2 rounded bg-yellow-500 hover:bg-yellow-400 text-black font-semibold"
               >
-                Spara ändringar
+               Save changes
               </button>
             </div>
           </div>

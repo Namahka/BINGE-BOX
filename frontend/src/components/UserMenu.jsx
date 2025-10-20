@@ -36,7 +36,7 @@ export default function UserMenu() {
           ) : user ? (
             <>
               <p className="px-4 py-2 text-sm text-gray-500 border-b border-yellow-200">
-                Inloggad som{" "}
+                {" "}
                 <span className="text-yellow-600 font-semibold">{user.username}</span>
               </p>
 
@@ -49,7 +49,7 @@ export default function UserMenu() {
                 }}
                 className="w-full text-left px-4 py-2 hover:bg-yellow-400 hover:text-black transition"
               >
-                Min sida
+                My Page
               </button>
 
               {/* ⚙️ Inställningar */}
@@ -60,7 +60,7 @@ export default function UserMenu() {
                 }}
                 className="w-full text-left px-4 py-2 hover:bg-yellow-400 hover:text-black transition"
               >
-                Inställningar
+                Settings
               </button>
 
               {/* 🗝️ Admin-knapp (endast om rollen är Admin) */}
@@ -72,7 +72,7 @@ export default function UserMenu() {
                   }}
                   className="w-full text-left px-4 py-2 hover:bg-yellow-500 hover:text-black transition flex items-center gap-2"
                 >
-                  <Key size={16} /> Admin-panel
+                  <Key size={16} /> Admin
                 </button>
               )}
 
@@ -85,7 +85,7 @@ export default function UserMenu() {
                 }}
                 className="w-full text-left px-4 py-2 hover:bg-red-600 text-red-500 hover:text-white border-t border-yellow-300 transition"
               >
-                Logga ut
+               Log out
               </button>
             </>
           ) : (
@@ -97,7 +97,7 @@ export default function UserMenu() {
                 }}
                 className="w-full text-left px-4 py-2 hover:bg-yellow-400 hover:text-black transition"
               >
-                Logga in
+                Log in
               </button>
 
               <button
@@ -107,7 +107,7 @@ export default function UserMenu() {
                 }}
                 className="w-full text-left px-4 py-2 hover:bg-yellow-400 hover:text-black transition"
               >
-                Skapa konto
+                Create Account
               </button>
             </>
           )}

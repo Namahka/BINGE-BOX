@@ -123,7 +123,7 @@ export default function UserProfile() {
               : "bg-yellow-400 hover:bg-yellow-500 text-black"
           }`}
         >
-          {amFollowing ? "Avfölj" : "Följ"}
+          {amFollowing ? "Follow" : "Unfollow"}
         </button>
       )}
 
@@ -134,14 +134,14 @@ export default function UserProfile() {
           className="text-gray-300 hover:text-yellow-400"
         >
           <span className="text-yellow-400 font-bold">{followers.length}</span>{" "}
-          Följare
+         Followers
         </button>
         <button
           onClick={() => setView("following")}
           className="text-gray-300 hover:text-yellow-400"
         >
           <span className="text-yellow-400 font-bold">{following.length}</span>{" "}
-          Följer
+          Following
         </button>
       </div>
 
@@ -157,7 +157,7 @@ export default function UserProfile() {
                 : "text-gray-400"
             }`}
           >
-            {tab === "about" ? "Om mig" : "Favoriter"}
+            {tab === "about" ? "About me" : "Favorites"}
           </button>
         ))}
       </div>
@@ -166,7 +166,7 @@ export default function UserProfile() {
       <section className="mt-6 w-full max-w-3xl text-center">
         {view === "about" && (
           <p className="text-gray-400">
-            Gick med:{" "}
+            Member since:{" "}
             {user?.createdAt
               ? new Date(user.createdAt).toLocaleDateString("sv-SE")
               : "Okänt datum"}
@@ -219,7 +219,7 @@ export default function UserProfile() {
                 );
               })
             ) : (
-              <p className="text-gray-500">Inga favoriter ännu.</p>
+              <p className="text-gray-500">No favorites yet</p>
             )}
           </div>
         )}
@@ -243,7 +243,7 @@ export default function UserProfile() {
                 </Link>
               ))
             ) : (
-              <p className="text-gray-500">Inga följare ännu.</p>
+              <p className="text-gray-500">No followers yet.</p>
             )}
           </ul>
         )}
@@ -267,7 +267,7 @@ export default function UserProfile() {
                 </Link>
               ))
             ) : (
-              <p className="text-gray-500">Följer ingen ännu.</p>
+              <p className="text-gray-500">Not following anyone.</p>
             )}
           </ul>
         )}

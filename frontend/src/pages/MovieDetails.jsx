@@ -57,7 +57,7 @@ export default function MovieDetails() {
   }}
   className="mb-6 bg-yellow-500 hover:bg-yellow-400 text-black py-2 px-4 rounded"
 >
-  ← Tillbaka
+  ← Go Back
 </button>
 
 

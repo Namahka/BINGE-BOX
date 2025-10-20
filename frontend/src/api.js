@@ -416,5 +416,27 @@ export async function getFollowing(userId) {
       ? `${API_URL}${f.profileImageUrl.startsWith("/") ? f.profileImageUrl : "/" + f.profileImageUrl}`
       : "/default-avatar.png",
   }));
+  
 }
+export async function getMovieOfTheWeek() {
+  const res = await fetch("https://localhost:7299/api/MovieOfTheWeek");
+  if (!res.ok) return null;
+  return await res.json();
+}
+
+export async function setMovieOfTheWeek(movie) {
+  const token = localStorage.getItem("token");
+  const res = await fetch("https://localhost:7299/api/MovieOfTheWeek/set", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(movie),
+  });
+  if (!res.ok) throw new Error("Misslyckades sätta veckans film");
+  return await res.json();
+}
+
+
 
