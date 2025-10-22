@@ -9,7 +9,8 @@ export default function Profile() {
   const { user } = useAuth();
   const { favorites, toggleFavorite, reloadFavorites, loading } = useFavorites();
 
-  const [bio, setBio] = useState("");
+  const [note, setNote] = useState("");
+  const [aboutMe, setAboutMe] = useState("");
   const [previewImage, setPreviewImage] = useState("");
   const [followers, setFollowers] = useState([]);
   const [following, setFollowing] = useState([]);
@@ -19,28 +20,21 @@ export default function Profile() {
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
 
-  // 🧠 Synka context-favoriter till lokala favoriter
   useEffect(() => {
-    if (favorites && favorites.length > 0) {
-      setFavoritesList(favorites);
-    }
+    if (favorites && favorites.length > 0) setFavoritesList(favorites);
   }, [favorites]);
 
-  // 🧩 Säkerställ att favoriter laddas även vid direktladdning av profilsidan
   useEffect(() => {
-    if (!loading && favorites.length === 0) {
-      reloadFavorites();
-    }
+    if (!loading && favorites.length === 0) reloadFavorites();
   }, [loading]);
 
-  // 🔁 Ladda profil, följare, favoriter
   useEffect(() => {
     async function loadProfile() {
       try {
         const data = await getProfile();
-        console.log("👤 Profil-data hämtad:", data);
         setPreviewImage(data.profileImageUrl || "");
-        setBio(data.bio || "");
+        setNote(data.note || "");
+        setAboutMe(data.aboutMe || "");
 
         const [f1, f2] = await Promise.all([
           getFollowers(data.id),
@@ -72,25 +66,22 @@ export default function Profile() {
         console.error("⚠️ Kunde inte hämta profil:", err);
       }
     }
-
     loadProfile();
   }, []);
 
-  // 📸 Hantera profilbild
   const handleFileChange = (e) => {
     const file = e.target.files[0];
-    if (!file) return;
-    setPreviewImage(URL.createObjectURL(file));
+    if (file) setPreviewImage(URL.createObjectURL(file));
   };
 
-  // 💾 Spara profil
   const handleSave = async () => {
     try {
       const token = localStorage.getItem("token");
       if (!token) throw new Error("Ingen token sparad – logga in igen.");
 
       const formData = new FormData();
-      formData.append("bio", bio);
+      formData.append("note", note);
+      formData.append("aboutMe", aboutMe);
       const file = fileInputRef.current?.files[0];
       if (file) formData.append("profileImage", file);
 
@@ -102,7 +93,8 @@ export default function Profile() {
 
       if (!res.ok) throw new Error("Misslyckades uppdatera profil");
       const data = await res.json();
-      setBio(data.bio);
+      setNote(data.note || "");
+      setAboutMe(data.aboutMe || "");
       setPreviewImage(data.profileImageUrl);
       setIsEditing(false);
       alert("Profil uppdaterad!");
@@ -112,33 +104,23 @@ export default function Profile() {
     }
   };
 
-  // ⭐ Favorit-toggle
   const handleToggleFavorite = async (movie, e) => {
     if (e) e.stopPropagation();
     const realMovieId = Number(movie.movieId ?? movie.id);
-
-    // ⚡ Direkt borttagning från lokala listan
-    setFavoritesList((prev) => {
-      const updated = prev.filter(
-        (f) => Number(f.movieId ?? f.id) !== realMovieId
-      );
-      return updated;
-    });
-
+    setFavoritesList((prev) =>
+      prev.filter((f) => Number(f.movieId ?? f.id) !== realMovieId)
+    );
     try {
-      const payload = {
+      await toggleFavorite({
         movieId: realMovieId,
         title: movie.title,
         posterUrl: movie.posterUrl,
         genre: movie.genre,
         rating: movie.rating,
         overview: movie.overview,
-      };
-
-      await toggleFavorite(payload);
+      });
     } catch (err) {
       console.error("⚠️ toggleFavorite-fel:", err);
-      // 🩹 lägg tillbaka vid fel
       setFavoritesList((prev) => [...prev, movie]);
     }
   };
@@ -154,8 +136,9 @@ export default function Profile() {
         {user?.username || "Laddar..."}
       </h2>
 
+      {/* NOTE visas under profilbild */}
       <p className="text-gray-300 mt-2 text-center max-w-md">
-        {bio || "Nothing to see here...Yet!."}
+        {note || "Nothing to see here...Yet!."}
       </p>
 
       <button
@@ -202,15 +185,17 @@ export default function Profile() {
       {/* Innehåll */}
       <section className="mt-6 w-full max-w-3xl text-center">
         {view === "about" && (
-          <p className="text-gray-400">
-            Member since:{" "}
-            {user?.createdAt
-              ? new Date(user.createdAt).toLocaleDateString("sv-SE")
-              : "Okänt datum"}
-          </p>
+          <div className="text-gray-400 space-y-4">
+            <p>
+              Member since:{" "}
+              {user?.createdAt
+                ? new Date(user.createdAt).toLocaleDateString("sv-SE")
+                : "Okänt datum"}
+            </p>
+            <p>{aboutMe || "No about info added yet."}</p>
+          </div>
         )}
 
-        {/* Favoriter */}
         {view === "favorites" && (
           <section>
             <h2 className="text-xl font-bold text-yellow-400 mb-4">
@@ -223,7 +208,9 @@ export default function Profile() {
                 {favoritesList.map((m) => (
                   <div
                     key={Number(m.movieId || m.id)}
-                    onClick={() => navigate(`/movie/${Number(m.movieId || m.id)}`)}
+                    onClick={() =>
+                      navigate(`/movie/${Number(m.movieId || m.id)}`)
+                    }
                     className="relative group rounded-lg overflow-hidden border border-gray-700 cursor-pointer hover:scale-105 transition-transform duration-200"
                   >
                     <img
@@ -252,7 +239,7 @@ export default function Profile() {
           </section>
         )}
 
-        {/* Följare */}
+        {/* Followers & Following bibehålls oförändrade */}
         {view === "followers" && (
           <ul className="mt-6 flex flex-col items-center gap-3">
             {followers.length > 0 ? (
@@ -276,7 +263,6 @@ export default function Profile() {
           </ul>
         )}
 
-        {/* Följer */}
         {view === "following" && (
           <ul className="mt-6 flex flex-col items-center gap-3">
             {following.length > 0 ? (
@@ -334,11 +320,22 @@ export default function Profile() {
               </div>
             </div>
 
+            {/* 🔹 NYTT: Note + About me separata */}
+            <div className="mb-5">
+              <p className="font-semibold mb-2 text-white">Note (visas under profilbild)</p>
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                className="w-full bg-black border p-3 rounded text-white resize-none h-20 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                placeholder="Kort anteckning som syns på profilen..."
+              ></textarea>
+            </div>
+
             <div className="mb-5">
               <p className="font-semibold mb-2 text-white">About me</p>
               <textarea
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
+                value={aboutMe}
+                onChange={(e) => setAboutMe(e.target.value)}
                 className="w-full bg-black border p-3 rounded text-white resize-none h-28 focus:outline-none focus:ring-2 focus:ring-yellow-400"
                 placeholder="Skriv lite om dig själv..."
               ></textarea>

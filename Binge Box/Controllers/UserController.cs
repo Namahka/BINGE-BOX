@@ -21,6 +21,9 @@ namespace BingeBox.Controllers
             _env = env;
         }
 
+        // ===============================
+        // 👤 Hämta inloggad profil
+        // ===============================
         [HttpGet("profile")]
         public async Task<IActionResult> GetProfile()
         {
@@ -33,12 +36,9 @@ namespace BingeBox.Controllers
 
             if (user == null) return NotFound();
 
-            // 🧩 Gör full URL till bilden (så React ser den direkt)
             string? fullImageUrl = null;
             if (!string.IsNullOrEmpty(user.ProfileImageUrl))
-            {
                 fullImageUrl = $"{Request.Scheme}://{Request.Host}{user.ProfileImageUrl}";
-            }
 
             return Ok(new
             {
@@ -47,11 +47,16 @@ namespace BingeBox.Controllers
                 user.Email,
                 ProfileImageUrl = fullImageUrl,
                 user.Bio,
+                user.Note,
+                user.AboutMe,
                 user.CreatedAt,
-                Role = user.Role ?? "User" // ✅ FIX: lägg till roll här också
+                Role = user.Role ?? "User"
             });
         }
 
+        // ===============================
+        // ✏️ Uppdatera profil
+        // ===============================
         [HttpPut("update")]
         [RequestSizeLimit(10_000_000)]
         public async Task<IActionResult> UpdateProfile([FromForm] UpdateProfileRequest req)
@@ -64,14 +69,24 @@ namespace BingeBox.Controllers
 
             bool updated = false;
 
-            // 🧠 Bio
             if (!string.IsNullOrWhiteSpace(req.Bio))
             {
                 user.Bio = req.Bio;
                 updated = true;
             }
 
-            // 🖼️ Profilbild
+            if (!string.IsNullOrWhiteSpace(req.Note))
+            {
+                user.Note = req.Note;
+                updated = true;
+            }
+
+            if (!string.IsNullOrWhiteSpace(req.AboutMe))
+            {
+                user.AboutMe = req.AboutMe;
+                updated = true;
+            }
+
             if (req.ProfileImage != null && req.ProfileImage.Length > 0)
             {
                 var uploadsDir = Path.Combine(_env.WebRootPath, "uploads");
@@ -82,9 +97,7 @@ namespace BingeBox.Controllers
                 var filePath = Path.Combine(uploadsDir, fileName);
 
                 using (var stream = new FileStream(filePath, FileMode.Create))
-                {
                     await req.ProfileImage.CopyToAsync(stream);
-                }
 
                 user.ProfileImageUrl = $"/uploads/{fileName}";
                 updated = true;
@@ -97,9 +110,7 @@ namespace BingeBox.Controllers
 
             string? fullImageUrl = null;
             if (!string.IsNullOrEmpty(user.ProfileImageUrl))
-            {
                 fullImageUrl = $"{Request.Scheme}://{Request.Host}{user.ProfileImageUrl}";
-            }
 
             return Ok(new
             {
@@ -107,13 +118,14 @@ namespace BingeBox.Controllers
                 user.Username,
                 user.Email,
                 ProfileImageUrl = fullImageUrl,
-                user.Bio
+                user.Bio,
+                user.Note,
+                user.AboutMe
             });
         }
 
         // ===============================
         // 🔍 Sök användare
-        // GET /api/User/search?query=namn
         // ===============================
         [HttpGet("search")]
         public IActionResult SearchUsers([FromQuery] string query)
@@ -123,7 +135,7 @@ namespace BingeBox.Controllers
 
             var users = _context.Users
                 .Where(u => u.Username.Contains(query))
-                .AsEnumerable() // behövs för att använda Request.Host i select
+                .AsEnumerable()
                 .Select(u => new
                 {
                     id = u.Id,
@@ -138,8 +150,7 @@ namespace BingeBox.Controllers
         }
 
         // ===============================
-        // 👤 Hämta annan användare via ID
-        // GET /api/User/{id}
+        // 👀 Hämta annan användare via ID
         // ===============================
         [HttpGet("{id}")]
         public async Task<IActionResult> GetUserById(int id)
@@ -153,9 +164,7 @@ namespace BingeBox.Controllers
 
             string? fullImageUrl = null;
             if (!string.IsNullOrEmpty(user.ProfileImageUrl))
-            {
                 fullImageUrl = $"{Request.Scheme}://{Request.Host}{user.ProfileImageUrl}";
-            }
 
             return Ok(new
             {
@@ -164,15 +173,22 @@ namespace BingeBox.Controllers
                 user.Email,
                 ProfileImageUrl = fullImageUrl,
                 user.Bio,
+                user.Note,
+                user.AboutMe,
                 user.CreatedAt,
-                Role = user.Role ?? "User" // 👑 behåll för sökning via ID också
+                Role = user.Role ?? "User"
             });
         }
     }
 
+    // ===============================
+    // 🧩 Request-modell
+    // ===============================
     public class UpdateProfileRequest
     {
         public string? Bio { get; set; }
+        public string? Note { get; set; }      // 👈 nytt
+        public string? AboutMe { get; set; }   // 👈 nytt
         public IFormFile? ProfileImage { get; set; }
     }
 }

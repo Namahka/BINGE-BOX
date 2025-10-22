@@ -17,12 +17,13 @@ namespace BingeBox.Models
         [Required]
         public string PasswordHash { get; set; } = string.Empty;
 
-        public string? ProfileImageUrl { get; set; } // 👈 profilbild
-        public string? Bio { get; set; }             // 👈 biotext
+        public string? ProfileImageUrl { get; set; } // profilbild
+        public string? Bio { get; set; }             // äldre fält
+        public string? Note { get; set; }            // 👈 visas under profilbild
+        public string? AboutMe { get; set; }         // 👈 visas under fliken "About me"
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-        // 🧠 Nytt fält: användarroll (User eller Admin)
         [Required]
         [StringLength(20)]
         public string Role { get; set; } = "User";
