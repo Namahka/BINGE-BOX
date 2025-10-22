@@ -24,7 +24,7 @@ export default function LoginRequiredPopup({ onClose }) {
             className="px-4 py-2 border border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black font-semibold rounded-lg"
             onClick={onClose}
           >
-            Skapa konto
+           Create account
           </Link>
         </div>
       </div>

@@ -39,11 +39,11 @@ export default function Register() {
         onSubmit={handleSubmit}
         className="bg-white p-8 rounded-xl shadow-md w-[320px]"
       >
-        <h1 className="text-2xl font-bold mb-4 text-center text-black">Skapa konto</h1>
+        <h1 className="text-2xl font-bold mb-4 text-center text-black">Create account</h1>
 
         <input
           className="w-full mb-3 p-2 rounded bg-black border border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
-          placeholder="Användarnamn"
+          placeholder="Username"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           required
@@ -51,7 +51,7 @@ export default function Register() {
         <input
           type="email"
           className="w-full mb-3 p-2 rounded bg-black border border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
-          placeholder="E-post"
+          placeholder="E-mail"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
@@ -59,7 +59,7 @@ export default function Register() {
         <input
           type="password"
           className= "w-full mb-3 p-2 rounded bg-black border border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
-          placeholder="Lösenord"
+          placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
@@ -72,7 +72,7 @@ export default function Register() {
           type="submit"
           className="w-full bg-yellow-500 hover:bg-yellow-600 py-2 rounded font-semibold text-gray-900 transition"
         >
-          Registrera
+          Create account
         </button>
       </form>
     </div>

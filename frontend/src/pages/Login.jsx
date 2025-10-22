@@ -32,7 +32,7 @@ export default function Login() {
       navigate("/profile");
     } catch (err) {
       console.error("Login error:", err);
-      setError("Felaktigt användarnamn eller lösenord");
+      setError("Incorrect username or password");
     } finally {
       setLoading(false);
     }
@@ -45,12 +45,12 @@ export default function Login() {
         className="bg-white p-8 rounded-2xl shadow-md w-[320px]"
       >
         <h1 className="text-2xl font-bold mb-4 text-center text-black">
-          Logga in
+          Log in
         </h1>
 
         <input
           className="w-full mb-3 p-2 rounded bg-black border border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
-          placeholder="E-post eller användarnamn"
+          placeholder="E-mail or username"
           value={identifier}
           onChange={(e) => setIdentifier(e.target.value)}
           autoComplete="username"
@@ -60,7 +60,7 @@ export default function Login() {
         <input
           type="password"
           className="w-full mb-3 p-2 rounded bg-black border border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
-          placeholder="Lösenord"
+          placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           autoComplete="current-password"
@@ -80,16 +80,16 @@ export default function Login() {
               : "bg-yellow-500 hover:bg-yellow-400 text-black"
           }`}
         >
-          {loading ? "Loggar in..." : "Logga in"}
+          {loading ? "Logging in..." : "Log in"}
         </button>
 
         <p className="text-sm text-gray-700 text-center mt-4">
-          Har du inget konto?{" "}
+      No account?{" "}
           <a
             href="/register"
             className="text-yellow-600 hover:underline font-semibold"
           >
-            Skapa konto
+           Create account
           </a>
         </p>
       </form>
