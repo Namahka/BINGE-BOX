@@ -186,12 +186,7 @@ export default function Profile() {
       <section className="mt-6 w-full max-w-3xl text-center">
         {view === "about" && (
           <div className="text-gray-400 space-y-4">
-            <p>
-              Member since:{" "}
-              {user?.createdAt
-                ? new Date(user.createdAt).toLocaleDateString("sv-SE")
-                : "Okänt datum"}
-            </p>
+         
             <p>{aboutMe || "No about info added yet."}</p>
           </div>
         )}

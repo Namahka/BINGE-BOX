@@ -35,25 +35,18 @@ export default function UserProfile() {
     async function loadUser() {
       try {
         setLoading(true);
-        console.log("🔍 Laddar profil med ID:", id, "Inloggad användare:", currentUser?.id);
-
         const data = await getUserById(id);
         setUser(data);
 
-        const [f1, f2] = await Promise.all([
-          getFollowers(id),
-          getFollowing(id),
-        ]);
+        const [f1, f2] = await Promise.all([getFollowers(id), getFollowing(id)]);
         setFollowers(f1);
         setFollowing(f2);
 
-        // 🧠 Ladda favoritlistan
         let favs = [];
         if (isOwnProfile) favs = await getFavorites();
         else favs = await getUserFavorites(id);
         setFavorites(favs);
 
-        // 🔹 Följstatus (om inloggad och inte sin egen)
         if (currentUser && !isOwnProfile) {
           const followState = await isFollowing(id);
           setAmFollowing(followState);
@@ -85,7 +78,7 @@ export default function UserProfile() {
 
   // ⭐ Lägg till / ta bort egen favorit
   const handleToggleFavorite = async (movie, e) => {
-    e.stopPropagation(); // hindra navigation till MovieDetails
+    e.stopPropagation();
     try {
       await toggleFavorite({
         ...movie,
@@ -114,8 +107,10 @@ export default function UserProfile() {
         className="w-32 h-32 rounded-full object-cover border-4 border-yellow-400 mb-4"
       />
       <h2 className="text-3xl font-bold text-yellow-400">{user.username}</h2>
+
+      {/* 📝 Note (kort text under profilbilden) */}
       <p className="text-gray-300 mt-2 max-w-md text-center">
-        {user.bio || "Ingen bio än."}
+        {user.note || "Nothing to see here...Yet!"}
       </p>
 
       {/* Följknapp (inte på egen profil) */}
@@ -176,16 +171,17 @@ export default function UserProfile() {
 
       {/* Innehåll */}
       <section className="mt-6 w-full max-w-3xl text-center">
+        {/* 📄 About me-fliken */}
         {view === "about" && (
-          <p className="text-gray-400">
-            Member since:{" "}
-            {user?.createdAt
-              ? new Date(user.createdAt).toLocaleDateString("sv-SE")
-              : "Okänt datum"}
-          </p>
+          <div className="text-gray-400 space-y-4">
+
+            <p className="whitespace-pre-line">
+              {user.aboutMe || "This user hasn't written anything yet."}
+            </p>
+          </div>
         )}
 
-        {/* FAVORITER */}
+        {/* ⭐ Favoriter */}
         {view === "favorites" && (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-4">
             {favorites.length > 0 ? (
@@ -207,7 +203,6 @@ export default function UserProfile() {
                       className="w-full h-64 object-cover"
                     />
 
-                    {/* 🔹 Stjärna — togglar MIN favorit */}
                     <button
                       onClick={(e) => handleToggleFavorite(m, e)}
                       className="absolute top-2 right-2 bg-black/70 p-1 rounded-full hover:bg-black transition"
@@ -236,7 +231,7 @@ export default function UserProfile() {
           </div>
         )}
 
-        {/* Följare */}
+        {/* 👥 Följare */}
         {view === "followers" && (
           <ul className="mt-6 flex flex-col items-center gap-3">
             {followers.length > 0 ? (
@@ -260,7 +255,7 @@ export default function UserProfile() {
           </ul>
         )}
 
-        {/* Följer */}
+        {/* ➡️ Följer */}
         {view === "following" && (
           <ul className="mt-6 flex flex-col items-center gap-3">
             {following.length > 0 ? (
