@@ -12,6 +12,7 @@ import {
 import { Star } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useFavorites } from "../hooks/useFavorites";
+import MovieCard from "../components/MovieCard";
 
 export default function UserProfile() {
   const { id } = useParams();
@@ -28,9 +29,16 @@ export default function UserProfile() {
   const [loading, setLoading] = useState(true);
   const [followLoading, setFollowLoading] = useState(false);
 
+  // watchlist
+  const [watchTab, setWatchTab] = useState("tv");
+  const [watchSubTab, setWatchSubTab] = useState("watched");
+  const [tvWatched, setTvWatched] = useState([]);
+  const [tvToWatch, setTvToWatch] = useState([]);
+  const [movieWatched, setMovieWatched] = useState([]);
+  const [movieToWatch, setMovieToWatch] = useState([]);
+
   const isOwnProfile = currentUser && parseInt(id) === currentUser.id;
 
-  // 🔄 Ladda användardata
   useEffect(() => {
     async function loadUser() {
       try {
@@ -51,6 +59,12 @@ export default function UserProfile() {
           const followState = await isFollowing(id);
           setAmFollowing(followState);
         }
+
+        // TODO: ladda watchlist från backend
+        setTvWatched([]);
+        setTvToWatch([]);
+        setMovieWatched([]);
+        setMovieToWatch([]);
       } catch (err) {
         console.error("⚠️ Kunde inte ladda profil:", err);
       } finally {
@@ -60,7 +74,6 @@ export default function UserProfile() {
     loadUser();
   }, [id, currentUser]);
 
-  // 🟡 Följ / Avfölj
   async function handleFollow() {
     if (followLoading) return;
     try {
@@ -76,7 +89,6 @@ export default function UserProfile() {
     }
   }
 
-  // ⭐ Lägg till / ta bort egen favorit
   const handleToggleFavorite = async (movie, e) => {
     e.stopPropagation();
     try {
@@ -107,13 +119,10 @@ export default function UserProfile() {
         className="w-32 h-32 rounded-full object-cover border-4 border-yellow-400 mb-4"
       />
       <h2 className="text-3xl font-bold text-yellow-400">{user.username}</h2>
-
-      {/* 📝 Note (kort text under profilbilden) */}
       <p className="text-gray-300 mt-2 max-w-md text-center">
         {user.note || "Nothing to see here...Yet!"}
       </p>
 
-      {/* Följknapp (inte på egen profil) */}
       {!isOwnProfile && (
         <button
           onClick={handleFollow}
@@ -134,7 +143,6 @@ export default function UserProfile() {
         </button>
       )}
 
-      {/* Följarinfo */}
       <div className="flex gap-6 mt-6">
         <button
           onClick={() => setView("followers")}
@@ -154,7 +162,7 @@ export default function UserProfile() {
 
       {/* Flikar */}
       <div className="flex gap-6 mt-8 border-b border-gray-700 pb-2">
-        {["about", "favorites"].map((tab) => (
+        {["about", "favorites", "watchlist"].map((tab) => (
           <button
             key={tab}
             onClick={() => setView(tab)}
@@ -164,24 +172,26 @@ export default function UserProfile() {
                 : "text-gray-400"
             }`}
           >
-            {tab === "about" ? "About me" : "Favorites"}
+            {tab === "about"
+              ? "About me"
+              : tab === "favorites"
+              ? "Favorites"
+              : "Watchlist"}
           </button>
         ))}
       </div>
 
-      {/* Innehåll */}
-      <section className="mt-6 w-full max-w-3xl text-center">
-        {/* 📄 About me-fliken */}
+      <section className="mt-6 w-full max-w-5xl text-center">
+        {/* ABOUT */}
         {view === "about" && (
           <div className="text-gray-400 space-y-4">
-
             <p className="whitespace-pre-line">
               {user.aboutMe || "This user hasn't written anything yet."}
             </p>
           </div>
         )}
 
-        {/* ⭐ Favoriter */}
+        {/* FAVORITES */}
         {view === "favorites" && (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-4">
             {favorites.length > 0 ? (
@@ -231,7 +241,86 @@ export default function UserProfile() {
           </div>
         )}
 
-        {/* 👥 Följare */}
+        {/* WATCHLIST */}
+        {view === "watchlist" && (
+          <div className="mt-6">
+            <div className="flex justify-center gap-6 border-b border-gray-700 pb-2">
+              {["tv", "movies"].map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setWatchTab(t)}
+                  className={`uppercase text-sm ${
+                    watchTab === t
+                      ? "text-yellow-400 border-b-2 border-yellow-400"
+                      : "text-gray-400"
+                  }`}
+                >
+                  {t === "tv" ? "TV SERIES" : "MOVIES"}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex justify-center gap-6 border-b border-gray-800 py-2 mt-3">
+              {["watched", "toWatch"].map((sub) => (
+                <button
+                  key={sub}
+                  onClick={() => setWatchSubTab(sub)}
+                  className={`capitalize text-sm ${
+                    watchSubTab === sub
+                      ? "text-yellow-400 border-b-2 border-yellow-400"
+                      : "text-gray-400"
+                  }`}
+                >
+                  {sub === "watched" ? "Watched" : "To Watch"}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-6">
+              {watchTab === "tv" ? (
+                watchSubTab === "watched" ? (
+                  tvWatched.length ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+                      {tvWatched.map((m) => (
+                        <MovieCard key={m.id} movie={m} />
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500">No watched TV shows yet.</p>
+                  )
+                ) : tvToWatch.length ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+                    {tvToWatch.map((m) => (
+                      <MovieCard key={m.id} movie={m} />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500">No TV shows to watch yet.</p>
+                )
+              ) : watchSubTab === "watched" ? (
+                movieWatched.length ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+                    {movieWatched.map((m) => (
+                      <MovieCard key={m.id} movie={m} />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500">No watched movies yet.</p>
+                )
+              ) : movieToWatch.length ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+                  {movieToWatch.map((m) => (
+                    <MovieCard key={m.id} movie={m} />
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500">No movies to watch yet.</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* FOLLOWERS */}
         {view === "followers" && (
           <ul className="mt-6 flex flex-col items-center gap-3">
             {followers.length > 0 ? (
@@ -255,7 +344,7 @@ export default function UserProfile() {
           </ul>
         )}
 
-        {/* ➡️ Följer */}
+        {/* FOLLOWING */}
         {view === "following" && (
           <ul className="mt-6 flex flex-col items-center gap-3">
             {following.length > 0 ? (
