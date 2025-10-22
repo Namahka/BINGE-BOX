@@ -14,6 +14,7 @@ namespace BingeBox.Data
         public DbSet<Favorite> Favorites { get; set; }
         public DbSet<Follower> Follows { get; set; }
         public DbSet<MovieOfTheWeek> MovieOfTheWeek { get; set; }
+        public DbSet<WatchlistItem> WatchlistItems { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)

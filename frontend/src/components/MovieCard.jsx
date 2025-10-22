@@ -2,8 +2,10 @@ import { useState, useEffect } from "react";
 import { Star } from "lucide-react";
 import { useFavorites } from "../hooks/useFavorites";
 import LoginRequiredPopup from "./LoginRequiredPopup";
+import { useNavigate } from "react-router-dom";
 
 export default function MovieCard({ movie }) {
+  const navigate = useNavigate();
   const { favorites, toggleFavorite } = useFavorites();
   const [showPopup, setShowPopup] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
@@ -35,16 +37,33 @@ export default function MovieCard({ movie }) {
     await toggleFavorite(movie);
   };
 
-  const poster =
-    movie.posterUrl ||
-    (movie.poster_path
-      ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
-      : "/placeholder.jpg");
+  // 🎬 Bestäm rätt typ
+  const type =
+    movie.mediaType || movie.media_type || (movie.known_for_department ? "person" : "movie");
+
+ // 🎬 Bildkälla (fixad)
+const poster = (() => {
+  if (movie.posterUrl && movie.posterUrl.startsWith("http")) return movie.posterUrl;
+  if (movie.profile && movie.profile.startsWith("http")) return movie.profile;
+  if (movie.poster_path)
+    return `https://image.tmdb.org/t/p/w500${movie.poster_path}`;
+  if (movie.profile_path)
+    return `https://image.tmdb.org/t/p/w500${movie.profile_path}`;
+  return "/placeholder.jpg";
+})();
+
+
+  // 🧭 Navigering beroende på typ
+  const handleClick = () => {
+    if (type === "person") navigate(`/person/${movie.id}`);
+    else if (type === "tv") navigate(`/tv/${movie.id}`);
+    else navigate(`/movie/${movie.id}`);
+  };
 
   return (
     <div
       className="relative bg-black border border-gray-700 rounded-xl overflow-hidden hover:scale-[1.03] transition-transform duration-200 cursor-pointer"
-      onClick={() => (window.location.href = `/movie/${movie.id || movie.movieId}`)}
+      onClick={handleClick}
     >
       {/* ⭐ Stjärna */}
       <button
@@ -56,7 +75,11 @@ export default function MovieCard({ movie }) {
             : "text-gray-400 bg-black/70 hover:text-yellow-300"
         }`}
       >
-        <Star fill={isFavorite ? "currentColor" : "none"} strokeWidth={2} size={22} />
+        <Star
+          fill={isFavorite ? "currentColor" : "none"}
+          strokeWidth={2}
+          size={22}
+        />
       </button>
 
       {/* 🎬 Bild */}
@@ -65,11 +88,14 @@ export default function MovieCard({ movie }) {
       {/* 📄 Info */}
       <div className="p-3 text-center text-white">
         <h3 className="text-md font-semibold text-yellow-400 truncate mb-1">
-          {movie.title || "Okänd titel"}
+          {movie.title || movie.name || "Okänd titel"}
         </h3>
         <p className="text-xs text-gray-400 italic mb-1">
           {movie.genre ||
-            (movie.genres?.[0]?.name ? movie.genres[0].name : "Okänd genre")}
+            movie.known_for_department ||
+            (movie.genres?.[0]?.name
+              ? movie.genres[0].name
+              : "Okänd genre")}
         </p>
         {(movie.rating || movie.vote_average) && (
           <p className="text-sm text-yellow-300 mb-1">
@@ -77,7 +103,7 @@ export default function MovieCard({ movie }) {
           </p>
         )}
         <p className="text-xs text-gray-400 line-clamp-3 leading-snug">
-          {movie.overview || "Ingen beskrivning tillgänglig."}
+          {movie.overview || movie.biography || "Ingen beskrivning tillgänglig."}
         </p>
       </div>
 

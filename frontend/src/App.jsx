@@ -221,21 +221,25 @@ function HomePage({ movies, mode, query, category, onBack, loading }) {
           : movies.map((m) => (
               <div
                 key={m.id}
-                onClick={() =>
-                  navigate(
-                    m.mediaType === "person"
-                      ? `/person/${m.id}`
-                      : `/${m.mediaType || "movie"}/${m.id}`,
-                    {
-                      state: {
-                        mediaType: m.mediaType || "movie",
-                        fromSearch: mode === "search",
-                        query,
-                        category,
-                      },
-                    }
-                  )
-                }
+                onClick={() => {
+  // Försök läsa typ från flera möjliga fält
+  const rawType = m.mediaType || m.media_type;
+  const type = rawType === "person" ? "person" : rawType === "tv" ? "tv" : "movie";
+
+  // Navigera rätt
+  navigate(
+    type === "person" ? `/person/${m.id}` : `/${type}/${m.id}`,
+    {
+      state: {
+        mediaType: type,
+        fromSearch: mode === "search",
+        query,
+        category,
+      },
+    }
+  );
+}}
+
                 className="cursor-pointer hover:scale-105 transition-transform duration-200"
               >
                 <MovieCard movie={m} />
@@ -405,9 +409,10 @@ function AppContent() {
             />
           }
         />
+          <Route path="/person/:id" element={<PersonDetails />} />
         <Route path="/movie/:id" element={<MovieDetails />} />
         <Route path="/tv/:id" element={<MovieDetails />} />
-        <Route path="/person/:id" element={<PersonDetails />} />
+      
         <Route path="/login" element={<Login />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/register" element={<Register />} />

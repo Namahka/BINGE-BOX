@@ -7,7 +7,8 @@ import { useFavorites } from "../hooks/useFavorites";
 
 export default function Profile() {
   const { user } = useAuth();
-  const { favorites, toggleFavorite, reloadFavorites } = useFavorites();
+  const { favorites, toggleFavorite, reloadFavorites, loading } = useFavorites();
+
   const [bio, setBio] = useState("");
   const [previewImage, setPreviewImage] = useState("");
   const [followers, setFollowers] = useState([]);
@@ -18,13 +19,19 @@ export default function Profile() {
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
 
-  // 🧠 Ladda favoriter EN gång – ingen dependency på [favorites]
+  // 🧠 Synka context-favoriter till lokala favoriter
   useEffect(() => {
-    console.log("🔄 useEffect: initial favorites från context:", favorites);
-    if (favorites && favorites.length > 0 && favoritesList.length === 0) {
+    if (favorites && favorites.length > 0) {
       setFavoritesList(favorites);
     }
-  }, []); // 🔥 viktig — inte [favorites]
+  }, [favorites]);
+
+  // 🧩 Säkerställ att favoriter laddas även vid direktladdning av profilsidan
+  useEffect(() => {
+    if (!loading && favorites.length === 0) {
+      reloadFavorites();
+    }
+  }, [loading]);
 
   // 🔁 Ladda profil, följare, favoriter
   useEffect(() => {
@@ -105,23 +112,16 @@ export default function Profile() {
     }
   };
 
-  // ⭐ Favorit-toggle — med full logging
+  // ⭐ Favorit-toggle
   const handleToggleFavorite = async (movie, e) => {
     if (e) e.stopPropagation();
     const realMovieId = Number(movie.movieId ?? movie.id);
-
-    console.log("⭐ Klick på favorit:", {
-      realMovieId,
-      movie,
-      före: favoritesList.map((f) => f.movieId),
-    });
 
     // ⚡ Direkt borttagning från lokala listan
     setFavoritesList((prev) => {
       const updated = prev.filter(
         (f) => Number(f.movieId ?? f.id) !== realMovieId
       );
-      console.log("🧹 Efter borttagning (UI):", updated.map((f) => f.movieId));
       return updated;
     });
 
@@ -135,19 +135,13 @@ export default function Profile() {
         overview: movie.overview,
       };
 
-      const result = await toggleFavorite(payload);
-      console.log("✅ toggleFavorite klart – svar från backend:", result);
+      await toggleFavorite(payload);
     } catch (err) {
       console.error("⚠️ toggleFavorite-fel:", err);
       // 🩹 lägg tillbaka vid fel
       setFavoritesList((prev) => [...prev, movie]);
     }
-
-    console.log("🎬 Efter allt:", favoritesList.map((f) => f.movieId));
   };
-
-  // 🧪 Debug — skriv ut favoriter som renderas
-  console.log("🧩 Renderar favoriterList:", favoritesList.map((f) => f.movieId));
 
   return (
     <main className="min-h-screen bg-black text-white flex flex-col items-center py-10 px-4">
@@ -184,7 +178,7 @@ export default function Profile() {
           className="text-gray-300 hover:text-yellow-400"
         >
           <span className="text-yellow-400 font-bold">{following.length}</span>{" "}
-       Following
+          Following
         </button>
       </div>
 
@@ -319,7 +313,7 @@ export default function Profile() {
             </button>
 
             <h2 className="text-2xl font-bold text-yellow-400 mb-4">
-             Edit Profile
+              Edit Profile
             </h2>
 
             <div className="mb-5">
@@ -355,13 +349,13 @@ export default function Profile() {
                 onClick={() => setIsEditing(false)}
                 className="px-4 py-2 rounded bg-yellow-400 hover:bg-yellow-500 text-black"
               >
-               Cancel
+                Cancel
               </button>
               <button
                 onClick={handleSave}
                 className="px-4 py-2 rounded bg-yellow-500 hover:bg-yellow-400 text-black font-semibold"
               >
-               Save changes
+                Save changes
               </button>
             </div>
           </div>

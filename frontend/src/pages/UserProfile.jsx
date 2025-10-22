@@ -26,6 +26,7 @@ export default function UserProfile() {
   const [amFollowing, setAmFollowing] = useState(false);
   const [view, setView] = useState("about");
   const [loading, setLoading] = useState(true);
+  const [followLoading, setFollowLoading] = useState(false);
 
   const isOwnProfile = currentUser && parseInt(id) === currentUser.id;
 
@@ -68,13 +69,17 @@ export default function UserProfile() {
 
   // 🟡 Följ / Avfölj
   async function handleFollow() {
+    if (followLoading) return;
     try {
+      setFollowLoading(true);
       const result = await toggleFollow(id);
       setAmFollowing(result.following);
       const updated = await getFollowers(id);
       setFollowers(updated);
     } catch (err) {
       console.error("⚠️ Misslyckades följa/avfölja:", err);
+    } finally {
+      setFollowLoading(false);
     }
   }
 
@@ -117,13 +122,20 @@ export default function UserProfile() {
       {!isOwnProfile && (
         <button
           onClick={handleFollow}
+          disabled={followLoading}
           className={`mt-4 px-5 py-2 rounded-lg font-semibold transition-colors ${
             amFollowing
               ? "bg-gray-600 hover:bg-gray-700 text-white"
               : "bg-yellow-400 hover:bg-yellow-500 text-black"
-          }`}
+          } ${followLoading ? "opacity-70 cursor-not-allowed" : ""}`}
         >
-          {amFollowing ? "Follow" : "Unfollow"}
+          {followLoading
+            ? amFollowing
+              ? "Unfollowing..."
+              : "Following..."
+            : amFollowing
+            ? "Unfollow"
+            : "Follow"}
         </button>
       )}
 
@@ -134,7 +146,7 @@ export default function UserProfile() {
           className="text-gray-300 hover:text-yellow-400"
         >
           <span className="text-yellow-400 font-bold">{followers.length}</span>{" "}
-         Followers
+          Followers
         </button>
         <button
           onClick={() => setView("following")}

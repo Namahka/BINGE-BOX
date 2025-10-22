@@ -48,12 +48,20 @@ export async function searchMovies(query, category = "all", page = 1) {
         (item.overview || item.title)
     );
 
-    const sorted = cleaned.sort(
-      (a, b) => (b.popularity || b.rating || 0) - (a.popularity || a.rating || 0)
-    );
+  // 🧹 Normalisera mediaType från TMDb:s "media_type"
+const normalized = cleaned.map((item) => ({
+  ...item,
+  mediaType: item.mediaType || item.media_type || "movie",
+}));
 
-    console.log(`✅ Returnerar ${sorted.length} resultat`);
-    return sorted;
+// 🔝 Sortera efter popularitet
+const sorted = normalized.sort(
+  (a, b) => (b.popularity || b.rating || 0) - (a.popularity || a.rating || 0)
+);
+
+console.log(`✅ Returnerar ${sorted.length} resultat`);
+return sorted;
+
   } catch (err) {
     console.error("⚠️ Fel vid sökning:", err);
     return [];

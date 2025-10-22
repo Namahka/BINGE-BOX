@@ -25,13 +25,17 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
         var key = Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]);
+
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = false,
             ValidateAudience = false,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(key)
+            IssuerSigningKey = new SymmetricSecurityKey(key),
+
+            // 🧩 Viktigt! Låt "nameid" i JWT mappa till User.Id
+            NameClaimType = "nameid"
         };
     });
 
@@ -109,7 +113,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// 🖼️ LÅT PROFILBILDER OCH UPPLADDADE FILER VISAS
+// 🖼️ Tillåt visning av profilbilder och uppladdade filer
 app.UseStaticFiles();
 
 app.UseCors("AllowAll");

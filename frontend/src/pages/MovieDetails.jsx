@@ -11,11 +11,15 @@ export default function MovieDetails() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    // 🧠 Om vi är på /person/, ska denna komponent INTE göra något alls
+    if (location.pathname.includes("/person/")) return;
+
     async function fetchMovie() {
       try {
         setLoading(true);
         setError(null);
 
+        // 🟡 Bestäm om det är film eller serie
         const mediaType =
           location.state?.mediaType ||
           (location.pathname.includes("/tv/") ? "tv" : "movie");
@@ -39,7 +43,9 @@ export default function MovieDetails() {
     }
 
     if (id) fetchMovie();
-  }, [id, location.state]);
+  }, [id, location.state, location.pathname]);
+
+  if (location.pathname.includes("/person/")) return null; // 👈 Säkerhetsåtgärd
 
   if (loading)
     return <p className="text-center text-slate-400 mt-10">Laddar...</p>;
@@ -49,17 +55,16 @@ export default function MovieDetails() {
 
   return (
     <div className="min-h-screen bg-black text-white p-6">
-<button
-  onClick={() => {
-    navigate(-1);
-    // triggar sökrutan att rensas i App.jsx
-    window.dispatchEvent(new PopStateEvent("popstate"));
-  }}
-  className="mb-6 bg-yellow-500 hover:bg-yellow-400 text-black py-2 px-4 rounded"
->
-  ← Go Back
-</button>
-
+      <button
+        onClick={() => {
+          navigate(-1);
+          // triggar sökrutan att rensas i App.jsx
+          window.dispatchEvent(new PopStateEvent("popstate"));
+        }}
+        className="mb-6 bg-yellow-500 hover:bg-yellow-400 text-black py-2 px-4 rounded"
+      >
+        ← Go Back
+      </button>
 
       <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-8">
         <div className="w-full md:w-1/3">
