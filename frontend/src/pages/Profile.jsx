@@ -4,6 +4,7 @@ import { Star } from "lucide-react";
 import { getProfile, getFollowers, getFollowing, getUserById } from "../api";
 import { useAuth } from "../hooks/useAuth";
 import { useFavorites } from "../hooks/useFavorites";
+import MovieCard from "../components/MovieCard"; // 👈 använder MovieCard
 
 export default function Profile() {
   const { user } = useAuth();
@@ -17,6 +18,14 @@ export default function Profile() {
   const [view, setView] = useState("about");
   const [isEditing, setIsEditing] = useState(false);
   const [favoritesList, setFavoritesList] = useState([]);
+  const [watchTab, setWatchTab] = useState("tv"); // 👈 tv / movies
+  const [watchSubTab, setWatchSubTab] = useState("watched"); // 👈 watched / toWatch
+
+  const [tvWatched, setTvWatched] = useState([]);
+  const [tvToWatch, setTvToWatch] = useState([]);
+  const [movieWatched, setMovieWatched] = useState([]);
+  const [movieToWatch, setMovieToWatch] = useState([]);
+
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
 
@@ -61,7 +70,14 @@ export default function Profile() {
 
         setFollowers(await resolveUsers(f1));
         setFollowing(await resolveUsers(f2));
+
         await reloadFavorites();
+
+        // TODO: Hämta watchlist här (när backend är klart)
+        setTvWatched([]);
+        setTvToWatch([]);
+        setMovieWatched([]);
+        setMovieToWatch([]);
       } catch (err) {
         console.error("⚠️ Kunde inte hämta profil:", err);
       }
@@ -136,7 +152,6 @@ export default function Profile() {
         {user?.username || "Laddar..."}
       </h2>
 
-      {/* NOTE visas under profilbild */}
       <p className="text-gray-300 mt-2 text-center max-w-md">
         {note || "Nothing to see here...Yet!."}
       </p>
@@ -167,7 +182,7 @@ export default function Profile() {
 
       {/* Flikar */}
       <div className="flex gap-6 mt-8 border-b border-gray-700 pb-2">
-        {["about", "favorites"].map((tab) => (
+        {["about", "favorites", "watchlist"].map((tab) => (
           <button
             key={tab}
             onClick={() => setView(tab)}
@@ -177,20 +192,25 @@ export default function Profile() {
                 : "text-gray-400"
             }`}
           >
-            {tab === "about" ? "About me" : "Favorites"}
+            {tab === "about"
+              ? "About me"
+              : tab === "favorites"
+              ? "Favorites"
+              : "Watchlist"}
           </button>
         ))}
       </div>
 
       {/* Innehåll */}
-      <section className="mt-6 w-full max-w-3xl text-center">
+      <section className="mt-6 w-full max-w-5xl text-center">
+        {/* About */}
         {view === "about" && (
           <div className="text-gray-400 space-y-4">
-         
             <p>{aboutMe || "No about info added yet."}</p>
           </div>
         )}
 
+        {/* Favorites */}
         {view === "favorites" && (
           <section>
             <h2 className="text-xl font-bold text-yellow-400 mb-4">
@@ -234,7 +254,89 @@ export default function Profile() {
           </section>
         )}
 
-        {/* Followers & Following bibehålls oförändrade */}
+        {/* 🟡 WATCHLIST */}
+        {view === "watchlist" && (
+          <div className="mt-6">
+            {/* Underflikar */}
+            <div className="flex justify-center gap-6 border-b border-gray-700 pb-2">
+              {["tv", "movies"].map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setWatchTab(t)}
+                  className={`uppercase text-sm ${
+                    watchTab === t
+                      ? "text-yellow-400 border-b-2 border-yellow-400"
+                      : "text-gray-400"
+                  }`}
+                >
+                  {t === "tv" ? "TV SERIES" : "MOVIES"}
+                </button>
+              ))}
+            </div>
+
+            {/* Subflikar */}
+            <div className="flex justify-center gap-6 border-b border-gray-800 py-2 mt-3">
+              {["watched", "toWatch"].map((sub) => (
+                <button
+                  key={sub}
+                  onClick={() => setWatchSubTab(sub)}
+                  className={`capitalize text-sm ${
+                    watchSubTab === sub
+                      ? "text-yellow-400 border-b-2 border-yellow-400"
+                      : "text-gray-400"
+                  }`}
+                >
+                  {sub === "watched" ? "Watched" : "To Watch"}
+                </button>
+              ))}
+            </div>
+
+            {/* Innehåll */}
+            <div className="mt-6">
+              {watchTab === "tv" ? (
+                watchSubTab === "watched" ? (
+                  tvWatched.length ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+                      {tvWatched.map((m) => (
+                        <MovieCard key={m.id} movie={m} />
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500">No watched TV shows yet.</p>
+                  )
+                ) : tvToWatch.length ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+                    {tvToWatch.map((m) => (
+                      <MovieCard key={m.id} movie={m} />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500">No TV shows to watch yet.</p>
+                )
+              ) : watchSubTab === "watched" ? (
+                movieWatched.length ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+                    {movieWatched.map((m) => (
+                      <MovieCard key={m.id} movie={m} />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500">No watched movies yet.</p>
+                )
+              ) : movieToWatch.length ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+                  {movieToWatch.map((m) => (
+                    <MovieCard key={m.id} movie={m} />
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500">No movies to watch yet.</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Followers & Following */}
         {view === "followers" && (
           <ul className="mt-6 flex flex-col items-center gap-3">
             {followers.length > 0 ? (
@@ -315,14 +417,13 @@ export default function Profile() {
               </div>
             </div>
 
-            {/* 🔹 NYTT: Note + About me separata */}
             <div className="mb-5">
-              <p className="font-semibold mb-2 text-white">Note (visas under profilbild)</p>
+              <p className="font-semibold mb-2 text-white">Note (under profile)</p>
               <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 className="w-full bg-black border p-3 rounded text-white resize-none h-20 focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                placeholder="Kort anteckning som syns på profilen..."
+                placeholder="Kort anteckning..."
               ></textarea>
             </div>
 
