@@ -65,7 +65,7 @@ export default function AdminFeatured() {
 
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("https://localhost:7299/api/movieoftheweek/set", {
+      const res = await fetch("http://localhost:7299/api/movieoftheweek/set", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

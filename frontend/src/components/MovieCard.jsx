@@ -8,66 +8,69 @@ import { useNavigate } from "react-router-dom";
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w500";
 const TMDB_API_KEY = "ce1d432c64f5d84d0cc30b70d6f30600"; // samma som i appsettings.json
 
-export default function MovieCard({ movie }) {
+export default function MovieCard({ movie, onRemove, onMove }) {
   const navigate = useNavigate();
   const { favorites, toggleFavorite } = useFavorites();
-  const {
-    watchlist,
-    addToWatchlist,
-    updateStatus,
-    moveItem,
-    removeFromWatchlist,
-  } = useWatchlist();
+ const {
+  watchlist,
+  addToWatchlist,
+  updateStatus,
+  removeFromWatchlist,
+} = useWatchlist();
+
 
   const [showPopup, setShowPopup] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [status, setStatus] = useState(null);
-  const [extraInfo, setExtraInfo] = useState({}); // 🆕 TMDb-detaljer
+  const [extraInfo, setExtraInfo] = useState({});
 
   const movieId = Number(
     movie.tmdbId ?? movie.tmdbID ?? movie.movieId ?? movie.MovieId ?? movie.id
   );
 
+  // 💛 Sätt favoritstatus
   useEffect(() => {
     const fav = favorites.some((f) => Number(f.movieId) === Number(movieId));
     setIsFavorite(fav);
   }, [favorites, movieId]);
 
+  // ⏱️ Hämta watchlist-status
   useEffect(() => {
     const item = watchlist.find((w) => Number(w.movieId) === Number(movieId));
     setStatus(item ? item.status : null);
   }, [watchlist, movieId]);
 
-  // 🆕 Hämta TMDb-info om beskrivning eller genre saknas
+  // 🧩 Hämta TMDb-info (en gång per id)
   useEffect(() => {
-    if (
-      !movie.overview &&
-      !movie.description &&
-      !movie.genre &&
-      movieId &&
-      !extraInfo.title
-    ) {
-      (async () => {
-        try {
-          const res = await fetch(
-            `https://api.themoviedb.org/3/movie/${movieId}?api_key=${TMDB_API_KEY}&language=en-US`
-          );
-          if (res.ok) {
-            const data = await res.json();
-            setExtraInfo({
-              genres: data.genres?.map((g) => g.name).join(", "),
-              overview: data.overview,
-              rating: data.vote_average,
-            });
-          }
-        } catch (err) {
-          console.error("⚠️ TMDb fetch failed:", err);
-        }
-      })();
-    }
-  }, [movieId, movie, extraInfo]);
+    if (!movieId || movie.overview || movie.description || movie.genre) return;
 
+    let isMounted = true;
+    const fetchMovie = async () => {
+      try {
+        const res = await fetch(
+          `https://api.themoviedb.org/3/movie/${movieId}?api_key=${TMDB_API_KEY}&language=en-US`
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!isMounted) return;
+        setExtraInfo({
+          genres: data.genres?.map((g) => g.name).join(", "),
+          overview: data.overview,
+          rating: data.vote_average,
+        });
+      } catch (err) {
+        console.error("⚠️ TMDb fetch failed:", err);
+      }
+    };
+
+    fetchMovie();
+    return () => {
+      isMounted = false;
+    };
+  }, [movieId]);
+
+  // 💛 Hantera favorit
   const handleFav = async (e) => {
     e.stopPropagation();
     const token = localStorage.getItem("token");
@@ -75,6 +78,7 @@ export default function MovieCard({ movie }) {
     await toggleFavorite(movie);
   };
 
+  // 📋 Öppna meny
   const handleMenu = (e) => {
     e.stopPropagation();
     const token = localStorage.getItem("token");
@@ -82,6 +86,7 @@ export default function MovieCard({ movie }) {
     setShowMenu((v) => !v);
   };
 
+  // 🎬 Hantera val i meny
   const handleChoice = async (choice) => {
     setShowMenu(false);
     const token = localStorage.getItem("token");
@@ -90,16 +95,19 @@ export default function MovieCard({ movie }) {
     if (choice === "remove") {
       await removeFromWatchlist(movieId);
       setStatus(null);
+      onRemove?.(movieId); // 🔥 meddela Profile
       return;
     }
 
     if (choice === "move") {
       const newStatus = status === "watched" ? "to-watch" : "watched";
       setStatus(newStatus);
-      await moveItem(movieId, newStatus);
+      await updateStatus(movieId, newStatus);
+      onMove?.(movieId, newStatus); // 🔥 meddela Profile
       return;
     }
 
+    // Lägg till eller ändra status
     if (!status) {
       await addToWatchlist(movie, choice);
       setStatus(choice);
@@ -107,8 +115,10 @@ export default function MovieCard({ movie }) {
       await updateStatus(movieId, choice);
       setStatus(choice);
     }
+    onMove?.(movieId, choice);
   };
 
+  // 🔗 Klick för att öppna detaljsida
   const handleClick = () => {
     if (!movieId) return;
     const type =
@@ -122,6 +132,7 @@ export default function MovieCard({ movie }) {
     );
   };
 
+  // 🖼️ Bild, genre, beskrivning osv.
   const poster =
     movie.posterUrl?.startsWith("http")
       ? movie.posterUrl
@@ -155,13 +166,15 @@ export default function MovieCard({ movie }) {
     movie.rating ??
     movie.vote_average ??
     extraInfo.rating ??
-    (movie.voteAverage ? movie.voteAverage : null);
+    movie.voteAverage ??
+    null;
 
   return (
     <div
       onClick={handleClick}
       className="relative bg-black border border-gray-700 rounded-xl overflow-hidden hover:scale-[1.03] transition-transform duration-200 cursor-pointer"
     >
+      {/* 💛 Favorite */}
       <button
         onClick={handleFav}
         className={`absolute top-2 right-2 p-2 rounded-full z-10 ${
@@ -177,6 +190,7 @@ export default function MovieCard({ movie }) {
         />
       </button>
 
+      {/* ⏱️ Watchlist-menu */}
       <button
         onClick={handleMenu}
         className="absolute top-2 left-2 p-2 rounded-full bg-black/70 hover:bg-black/90 text-gray-300 hover:text-yellow-300 z-10"

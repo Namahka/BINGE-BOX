@@ -2,7 +2,24 @@
 // 🌐 API – BINGE BOX
 // ===============================
 
-const API_URL = "https://localhost:7299"; // 🔧 Ändra port om backend körs på annan port
+const API_URL = "http://localhost:7299"; // 🔧 Ändra port om backend körs på annan port
+// ===================================================
+// 🧱 Central helper – fixad så den inte dubblar URL
+// ===================================================
+export async function authFetch(url, options = {}) {
+  const token = localStorage.getItem("token");
+  const headers = {
+    Accept: "application/json",
+    ...(options.headers || {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+
+  // ✅ Lägg inte till API_URL om det redan finns i url:en
+  const fullUrl = url.startsWith("http") ? url : `${API_URL}${url}`;
+
+  return fetch(fullUrl, { ...options, headers });
+}
+
 
 // ===============================
 // 🎬 Hämtar populära filmer
@@ -444,14 +461,14 @@ export async function getFollowing(userId) {
   
 }
 export async function getMovieOfTheWeek() {
-  const res = await fetch("https://localhost:7299/api/MovieOfTheWeek");
+  const res = await fetch("http://localhost:7299/api/MovieOfTheWeek");
   if (!res.ok) return null;
   return await res.json();
 }
 
 export async function setMovieOfTheWeek(movie) {
   const token = localStorage.getItem("token");
-  const res = await fetch("https://localhost:7299/api/MovieOfTheWeek/set", {
+  const res = await fetch("http://localhost:7299/api/MovieOfTheWeek/set", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

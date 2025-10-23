@@ -2,7 +2,7 @@
 import { createContext, useEffect, useState } from "react";
 import { getProfile } from "../api";
 
-// 🟡 Skapa context
+// 🟡 Skapa global AuthContext
 export const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
@@ -21,9 +21,15 @@ export function AuthProvider({ children }) {
     const fetchProfile = async () => {
       try {
         const data = await getProfile();
-        setUser(data);
+        if (data) {
+          setUser(data);
+        } else {
+          console.warn("⚠️ getProfile returnerade tomt svar");
+          setUser(null);
+        }
       } catch (err) {
-        console.warn("⚠️ Kunde inte hämta profil (token finns kvar)", err);
+        console.warn("⚠️ Kunde inte hämta profil (token finns kvar):", err);
+        setUser(null);
       } finally {
         setLoading(false);
       }
@@ -32,18 +38,26 @@ export function AuthProvider({ children }) {
     fetchProfile();
   }, []);
 
-  // ✅ Login
+  // ✅ Login-funktion
   const login = (token, userData) => {
-    localStorage.setItem("token", token);
-    setUser(userData);
-    window.dispatchEvent(new Event("authChange"));
+    try {
+      localStorage.setItem("token", token);
+      setUser(userData);
+      window.dispatchEvent(new Event("authChange"));
+    } catch (err) {
+      console.error("❌ Fel vid login:", err);
+    }
   };
 
-  // ✅ Logout
+  // ✅ Logout-funktion
   const logout = () => {
-    localStorage.removeItem("token");
-    setUser(null);
-    window.dispatchEvent(new Event("authChange"));
+    try {
+      localStorage.removeItem("token");
+      setUser(null);
+      window.dispatchEvent(new Event("authChange"));
+    } catch (err) {
+      console.error("❌ Fel vid logout:", err);
+    }
   };
 
   return (

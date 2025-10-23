@@ -111,7 +111,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 
 // 🖼️ Tillåt visning av profilbilder och uppladdade filer
 app.UseStaticFiles();

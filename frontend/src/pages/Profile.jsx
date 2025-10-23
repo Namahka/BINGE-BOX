@@ -20,7 +20,11 @@ const navigateToMedia = (navigate, item) => {
     item.mediaType || item.media_type || item.type || item.Type || "";
   let type = "movie";
 
-  if (rawType.toLowerCase().includes("person")) type = "person";
+  if (rawType.toLowerCase().includes("tv")) type = "tv";
+  else if (rawType.toLowerCase().includes("person")) type = "person";
+
+  if (item.first_air_date && !rawType) type = "tv";
+  if (item.release_date && !rawType) type = "movie";
 
   const id = item.movieId || item.id;
   if (!id) {
@@ -29,7 +33,7 @@ const navigateToMedia = (navigate, item) => {
   }
 
   navigate(
-    type === "person" ? `/person/${id}` : `/movie/${id}`,
+    type === "person" ? `/person/${id}` : `/${type}/${id}`,
     { state: { mediaType: type, fromProfile: true } }
   );
 };
@@ -37,14 +41,15 @@ const navigateToMedia = (navigate, item) => {
 export default function Profile() {
   const { user } = useAuth();
   const { favorites, toggleFavorite, reloadFavorites, loading } = useFavorites();
-  const {
-    watchlist,
-    loading: watchlistLoading,
-    updateStatus,
-    removeFromWatchlist,
-    moveItem,
-  } = useWatchlist();
+const {
+  watchlist,
+  loading: watchlistLoading,
+  updateStatus,
+  removeFromWatchlist,
+  reloadWatchlist, // 🔄 Se till att din hook exporterar denna
+} = useWatchlist();
 
+const [localWatchlist, setLocalWatchlist] = useState([]);
   const [note, setNote] = useState("");
   const [aboutMe, setAboutMe] = useState("");
   const [previewImage, setPreviewImage] = useState("");
@@ -54,29 +59,29 @@ export default function Profile() {
   const [isEditing, setIsEditing] = useState(false);
   const [favoritesList, setFavoritesList] = useState([]);
   const [watchSubTab, setWatchSubTab] = useState("watched");
+  
 
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
 
-  // 🟡 Initiera favoriter — bara när de ändras på riktigt
+  // 🟡 Initiera favoriter
   useEffect(() => {
-    if (favorites && favorites.length > 0) {
-      setFavoritesList((prev) => {
-        const prevStr = JSON.stringify(prev);
-        const newStr = JSON.stringify(favorites);
-        return prevStr === newStr ? prev : favorites;
-      });
-    }
+    if (favorites && favorites.length > 0) setFavoritesList(favorites);
   }, [favorites]);
 
-  // 🟣 Ladda profil & följare endast en gång
   useEffect(() => {
-    let mounted = true;
+    if (!loading && favorites.length === 0) reloadFavorites();
+  }, [loading]);
+
+useEffect(() => {
+  if (watchlist) setLocalWatchlist(watchlist);
+}, [watchlist]);
+
+  // 🟣 Ladda profil & följare
+  useEffect(() => {
     async function loadProfile() {
       try {
         const data = await getProfile();
-        if (!mounted) return;
-
         setPreviewImage(data.profileImageUrl || "");
         setNote(data.note || "");
         setAboutMe(data.aboutMe || "");
@@ -107,14 +112,12 @@ export default function Profile() {
         setFollowers(await resolveUsers(f1));
         setFollowing(await resolveUsers(f2));
         await reloadFavorites();
+        await reloadWatchlist?.(); // 🔄 se till att watchlist laddas initialt
       } catch (err) {
         console.error("⚠️ Kunde inte hämta profil:", err);
       }
     }
     loadProfile();
-    return () => {
-      mounted = false;
-    };
   }, []);
 
   // 🖼️ Hantera profilbild-val
@@ -135,7 +138,7 @@ export default function Profile() {
       const file = fileInputRef.current?.files[0];
       if (file) formData.append("profileImage", file);
 
-      const res = await fetch("https://localhost:7299/api/User/update", {
+      const res = await fetch("http://localhost:7299/api/User/update", {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
@@ -175,6 +178,41 @@ export default function Profile() {
       setFavoritesList((prev) => [...prev, movie]);
     }
   };
+
+  // 🧩 Uppdatera lokalt utan omladdning när man flyttar / tar bort
+const handleRemove = async (id) => {
+  // 💨 uppdatera direkt i UI
+  setLocalWatchlist((prev) => prev.filter((m) => m.movieId !== id));
+
+  // 🔧 backend
+  await removeFromWatchlist(id);
+};
+
+const handleMove = async (id, newStatus) => {
+  console.log("🎬 handleMove:", { id, newStatus });
+
+  const safeId = Number(id);
+  const safeStatus = String(newStatus).toLowerCase();
+
+  // 🟡 uppdatera direkt i UI
+  setLocalWatchlist((prev) =>
+    prev.map((m) =>
+      Number(m.movieId) === safeId ? { ...m, status: safeStatus } : m
+    )
+  );
+
+  // 🟡 uppdatera backend
+  try {
+    await updateStatus(safeId, safeStatus);
+  } catch (err) {
+    console.error("⚠️ Fel vid updateStatus:", err);
+  }
+};
+
+
+
+
+
 
   return (
     <main className="min-h-screen bg-black text-white flex flex-col items-center py-10 px-4">
@@ -311,10 +349,13 @@ export default function Profile() {
                 <p className="text-gray-400">Loading...</p>
               ) : (
                 (() => {
-                  const normalized = watchlist.map((w) => ({
-                    ...w,
-                    status: (w.status || w.Status || "").toLowerCase().trim(),
-                  }));
+
+ const normalized = localWatchlist.map((w) => ({
+  ...w,
+  status: String(w.status || w.Status || "").toLowerCase().trim(),
+}));
+
+
 
                   const data =
                     watchSubTab === "watched"
@@ -324,12 +365,18 @@ export default function Profile() {
                   return data.length ? (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
                       {data.map((m) => (
-                        <MovieCard key={m.movieId} movie={m} />
+                        <MovieCard
+  key={m.movieId || m.id}
+  movie={m}
+  onMove={handleMove}       // ✅ ändra till denna
+  onRemove={handleRemove}   // ✅ lämna kvar denna
+/>
+
                       ))}
                     </div>
                   ) : (
                     <p className="text-gray-500 text-center mt-6">
-                      No {watchSubTab === "watched" ? "watched" : "to watch"} movies yet.
+                      No {watchSubTab === "watched" ? "watched" : "to watch"} items yet.
                     </p>
                   );
                 })()

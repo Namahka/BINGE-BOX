@@ -3,7 +3,7 @@ import { createContext, useState, useEffect } from "react";
 
 export const FavoritesContext = createContext(null);
 
-const API_URL = "https://localhost:7299";
+const API_URL = "http://localhost:7299";
 
 export function FavoritesProvider({ children }) {
   const [favorites, setFavorites] = useState([]);

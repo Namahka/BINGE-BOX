@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
@@ -70,7 +71,6 @@ namespace BingeBox.Controllers
             item.UserId = userId;
             item.AddedAt = DateTime.UtcNow;
 
-            // 🧩 Hämta film från TMDb
             try
             {
                 JsonDocument? tmdbData = await _tmdb.GetMovieDetailsAsync(item.MovieId);
@@ -88,13 +88,11 @@ namespace BingeBox.Controllers
                         ? string.Join(", ", gArray.EnumerateArray().Select(g => g.GetProperty("name").GetString()))
                         : "Unknown";
 
-                    // Spara även i Movies-tabellen om den saknas
                     var existingMovie = await _context.Movies.FirstOrDefaultAsync(m => m.Id == item.MovieId);
                     if (existingMovie == null)
                     {
                         var newMovie = new Movie
                         {
-                      
                             Title = title,
                             Description = overview,
                             Rating = rating,
@@ -107,7 +105,6 @@ namespace BingeBox.Controllers
                         await _context.SaveChangesAsync();
                     }
 
-                    // koppla info till watchlist-item
                     item.Title = title;
                     item.PosterUrl = poster;
                     item.Type = "movie";
@@ -133,18 +130,27 @@ namespace BingeBox.Controllers
         // 🟨 POST /api/watchlist/update
         // Ändra status (t.ex. "to-watch" -> "watched")
         // --------------------------------------------------------
+        public class WatchlistUpdateDto
+        {
+            public int MovieId { get; set; }
+            public string Status { get; set; } = "to-watch";
+        }
+
         [HttpPost("update")]
-        public async Task<IActionResult> UpdateWatchlistStatus([FromBody] WatchlistItem update)
+        public async Task<IActionResult> UpdateWatchlistStatus([FromBody] WatchlistUpdateDto update)
         {
             var userId = GetUserId();
+
+            if (update.MovieId == 0)
+                return BadRequest("MovieId saknas i requesten.");
 
             var existing = await _context.WatchlistItems
                 .FirstOrDefaultAsync(w => w.MovieId == update.MovieId && w.UserId == userId);
 
             if (existing == null)
-                return NotFound();
+                return NotFound("Ingen film hittades i din watchlist.");
 
-            existing.Status = update.Status;
+            existing.Status = update.Status?.ToLower().Trim() ?? "to-watch";
             await _context.SaveChangesAsync();
 
             return Ok(existing);
@@ -152,27 +158,46 @@ namespace BingeBox.Controllers
 
         // --------------------------------------------------------
         // 🟥 DELETE /api/watchlist/{id}
-        // Tar bort en post från listan
         // --------------------------------------------------------
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteWatchlistItem(int id)
+        [HttpDelete("{id:int}")]
+        public async Task<IActionResult> DeleteById(int id)
         {
-            var userId = GetUserId();
-
-            var item = await _context.WatchlistItems
-                .FirstOrDefaultAsync(w => w.Id == id && w.UserId == userId);
-
+            var item = await _context.WatchlistItems.FindAsync(id);
             if (item == null)
-                return NotFound();
+            {
+                // ✅ Returnera 204 istället för 404 om redan borttagen
+                return NoContent();
+            }
 
             _context.WatchlistItems.Remove(item);
             await _context.SaveChangesAsync();
-
             return NoContent();
         }
 
         // --------------------------------------------------------
-        // 🧩 Debug-endpoint (valfri)
+        // 🟥 DELETE /api/watchlist/by-movie/{movieId}
+        // --------------------------------------------------------
+        [HttpDelete("by-movie/{movieId:int}")]
+        public async Task<IActionResult> DeleteByMovieId(int movieId)
+        {
+            var userId = GetUserId();
+
+            var item = await _context.WatchlistItems
+                .FirstOrDefaultAsync(w => w.MovieId == movieId && w.UserId == userId);
+
+            if (item == null)
+            {
+                // ✅ Samma här: ingen 404 längre
+                return NoContent();
+            }
+
+            _context.WatchlistItems.Remove(item);
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
+        // --------------------------------------------------------
+        // 🧩 Debug-endpoint
         // --------------------------------------------------------
         [HttpGet("debug-claims")]
         public IActionResult DebugClaims()

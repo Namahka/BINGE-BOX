@@ -12,7 +12,7 @@ export default function PersonDetails() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch(`https://localhost:7299/api/tmdb/person/${id}`);
+        const res = await fetch(`http://localhost:7299/api/tmdb/person/${id}`);
         if (!res.ok) throw new Error("Kunde inte hämta persondata");
         const data = await res.json();
         setPerson(data);

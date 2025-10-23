@@ -22,7 +22,7 @@ export default function MovieDetails() {
         const mediaType = "movie";
 
         const res = await fetch(
-          `https://localhost:7299/api/tmdb/details/${mediaType}/${id}`
+          `http://localhost:7299/api/tmdb/details/${mediaType}/${id}`
         );
         if (!res.ok)
           throw new Error(
