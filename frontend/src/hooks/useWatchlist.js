@@ -1,147 +1,72 @@
-import { useState, useEffect, useCallback } from "react";
-
-const API_URL = "https://localhost:7299/api/watchlist";
+import { useState, useEffect } from "react";
 
 export function useWatchlist() {
   const [watchlist, setWatchlist] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
-  // 🧠 Ladda watchlist från servern
-  const loadWatchlist = useCallback(async () => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      setWatchlist([]);
-      return;
-    }
+  const token = localStorage.getItem("token");
 
+  const loadWatchlist = async () => {
+    if (!token) return;
+    setLoading(true);
     try {
-      const res = await fetch(API_URL, {
+      const res = await fetch("https://localhost:7299/api/watchlist", {
         headers: { Authorization: `Bearer ${token}` },
       });
-
-      if (!res.ok) throw new Error("Kunde inte hämta watchlist");
-      const data = await res.json();
-
-      // 🚫 Filtrera bort allt som är TV
-      const filtered = Array.isArray(data)
-        ? data.filter(
-            (item) =>
-              item.type?.toLowerCase() !== "tv" &&
-              item.Type?.toLowerCase() !== "tv" &&
-              item.media_type?.toLowerCase() !== "tv"
-          )
-        : [];
-
-      // ✅ Endast uppdatera om datan faktiskt skiljer sig
-      setWatchlist((prev) => {
-        const prevString = JSON.stringify(prev);
-        const newString = JSON.stringify(filtered);
-        return prevString === newString ? prev : filtered;
-      });
+      if (res.ok) {
+        const data = await res.json();
+        setWatchlist(data);
+      }
     } catch (err) {
-      console.error("❌ Fel vid hämtning av watchlist:", err);
+      console.error("⚠️ loadWatchlist-fel:", err);
+    } finally {
+      setLoading(false);
     }
-  }, []);
+  };
 
-  // 🔄 Flytta mellan watched/to-watch
-  const moveItem = useCallback(async (movieId, newStatus) => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
+  // 🟢 Lägg till film
+  const addToWatchlist = async (movie, status = "to-watch") => {
     try {
-      const res = await fetch(`${API_URL}/update`, {
+      const payload = {
+        movieId:
+          movie.tmdbId ??
+          movie.tmdbID ??
+          movie.id ??
+          movie.movieId ??
+          movie.MovieId,
+        title: movie.title ?? movie.name,
+        posterUrl:
+          movie.posterUrl ??
+          movie.poster_path
+            ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
+            : null,
+        type: "movie",
+        status,
+      };
+
+      const res = await fetch("https://localhost:7299/api/watchlist/add", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ movieId, status: newStatus }),
+        body: JSON.stringify(payload),
       });
 
-      if (!res.ok) throw new Error("Misslyckades uppdatera status");
-
-      setWatchlist((prev) =>
-        prev.map((w) =>
-          Number(w.movieId) === Number(movieId)
-            ? { ...w, status: newStatus }
-            : w
-        )
-      );
+      if (res.ok) {
+        await loadWatchlist();
+      } else {
+        console.warn("❌ AddToWatchlist misslyckades");
+      }
     } catch (err) {
-      console.error("❌ moveItem error:", err);
+      console.error("⚠️ addToWatchlist-fel:", err);
     }
-  }, []);
+  };
 
-  // 🗑️ Ta bort från watchlist
-  const removeFromWatchlist = useCallback(async (movieId) => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
+  // 🟨 Uppdatera status
+  const updateStatus = async (movieId, status) => {
     try {
-      const res = await fetch(`${API_URL}/remove/${movieId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!res.ok) throw new Error("Kunde inte ta bort film");
-
-      setWatchlist((prev) =>
-        prev.filter((w) => Number(w.movieId) !== Number(movieId))
-      );
-    } catch (err) {
-      console.error("❌ removeFromWatchlist error:", err);
-    }
-  }, []);
-
-  // ➕ Lägg till i watchlist (endast filmer)
-  const addToWatchlist = useCallback(async (movie, status = "to-watch") => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
-    const item = {
-      movieId: movie.id || movie.movieId,
-      title: movie.title || movie.name,
-      posterUrl:
-        movie.posterUrl ||
-        (movie.poster_path
-          ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
-          : null),
-      type: "movie", // 🔥 Tvinga alltid film
-      status,
-    };
-
-    try {
-      const res = await fetch(`${API_URL}/add`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(item),
-      });
-
-      if (!res.ok) throw new Error("Kunde inte lägga till i watchlist");
-
-      const newItem = await res.json();
-
-      setWatchlist((prev) => {
-        const exists = prev.some(
-          (w) => Number(w.movieId) === Number(newItem.movieId)
-        );
-        return exists ? prev : [newItem, ...prev];
-      });
-    } catch (err) {
-      console.error("❌ addToWatchlist error:", err);
-    }
-  }, []);
-
-  // 🟡 Uppdatera status
-  const updateStatus = useCallback(async (movieId, status) => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
-    try {
-      const res = await fetch(`${API_URL}/update`, {
+      const res = await fetch("https://localhost:7299/api/watchlist/update", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -150,42 +75,43 @@ export function useWatchlist() {
         body: JSON.stringify({ movieId, status }),
       });
 
-      if (!res.ok) throw new Error("Misslyckades uppdatera status");
-
-      const updated = await res.json();
-
-      setWatchlist((prev) =>
-        prev.map((item) =>
-          Number(item.movieId) === Number(movieId)
-            ? { ...item, status: updated.status }
-            : item
-        )
-      );
+      if (res.ok) await loadWatchlist();
     } catch (err) {
-      console.error("❌ updateStatus error:", err);
+      console.error("⚠️ updateStatus-fel:", err);
     }
-  }, []);
+  };
 
-  // 🧩 Kör endast en gång vid mount
+  // 🟥 Ta bort
+  const removeFromWatchlist = async (movieId) => {
+    try {
+      const res = await fetch(
+        `https://localhost:7299/api/watchlist/${movieId}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (res.ok) {
+        setWatchlist((prev) =>
+          prev.filter((m) => Number(m.movieId) !== Number(movieId))
+        );
+      }
+    } catch (err) {
+      console.error("⚠️ removeFromWatchlist-fel:", err);
+    }
+  };
+
   useEffect(() => {
-    let isMounted = true;
-    (async () => {
-      await loadWatchlist();
-      if (isMounted) setLoading(false);
-    })();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []); // 🚀 Ingen dependency-loop
+    loadWatchlist();
+  }, []);
 
   return {
     watchlist,
     loading,
     addToWatchlist,
     updateStatus,
-    moveItem,
     removeFromWatchlist,
-    reload: loadWatchlist,
+    loadWatchlist,
   };
 }

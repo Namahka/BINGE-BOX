@@ -5,6 +5,9 @@ import { useWatchlist } from "../hooks/useWatchlist";
 import LoginRequiredPopup from "./LoginRequiredPopup";
 import { useNavigate } from "react-router-dom";
 
+const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w500";
+const TMDB_API_KEY = "ce1d432c64f5d84d0cc30b70d6f30600"; // samma som i appsettings.json
+
 export default function MovieCard({ movie }) {
   const navigate = useNavigate();
   const { favorites, toggleFavorite } = useFavorites();
@@ -20,6 +23,7 @@ export default function MovieCard({ movie }) {
   const [isFavorite, setIsFavorite] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [status, setStatus] = useState(null);
+  const [extraInfo, setExtraInfo] = useState({}); // 🆕 TMDb-detaljer
 
   const movieId = Number(
     movie.tmdbId ?? movie.tmdbID ?? movie.movieId ?? movie.MovieId ?? movie.id
@@ -34,6 +38,35 @@ export default function MovieCard({ movie }) {
     const item = watchlist.find((w) => Number(w.movieId) === Number(movieId));
     setStatus(item ? item.status : null);
   }, [watchlist, movieId]);
+
+  // 🆕 Hämta TMDb-info om beskrivning eller genre saknas
+  useEffect(() => {
+    if (
+      !movie.overview &&
+      !movie.description &&
+      !movie.genre &&
+      movieId &&
+      !extraInfo.title
+    ) {
+      (async () => {
+        try {
+          const res = await fetch(
+            `https://api.themoviedb.org/3/movie/${movieId}?api_key=${TMDB_API_KEY}&language=en-US`
+          );
+          if (res.ok) {
+            const data = await res.json();
+            setExtraInfo({
+              genres: data.genres?.map((g) => g.name).join(", "),
+              overview: data.overview,
+              rating: data.vote_average,
+            });
+          }
+        } catch (err) {
+          console.error("⚠️ TMDb fetch failed:", err);
+        }
+      })();
+    }
+  }, [movieId, movie, extraInfo]);
 
   const handleFav = async (e) => {
     e.stopPropagation();
@@ -76,10 +109,8 @@ export default function MovieCard({ movie }) {
     }
   };
 
-  // 🧭 Klick → ENDAST till /movie eller /person
   const handleClick = () => {
     if (!movieId) return;
-
     const type =
       movie.mediaType === "person" || movie.media_type === "person"
         ? "person"
@@ -87,37 +118,44 @@ export default function MovieCard({ movie }) {
 
     navigate(
       type === "person" ? `/person/${movieId}` : `/movie/${movieId}`,
-      {
-        state: { mediaType: type, fromCard: true },
-      }
+      { state: { mediaType: type, fromCard: true } }
     );
   };
 
   const poster =
-    movie.posterUrl && movie.posterUrl.startsWith("http")
+    movie.posterUrl?.startsWith("http")
       ? movie.posterUrl
-      : movie.PosterUrl && movie.PosterUrl.startsWith("http")
+      : movie.PosterUrl?.startsWith("http")
       ? movie.PosterUrl
       : movie.poster_path
-      ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
+      ? `${TMDB_IMAGE_BASE}${movie.poster_path}`
       : movie.profile_path
-      ? `https://image.tmdb.org/t/p/w500${movie.profile_path}`
+      ? `${TMDB_IMAGE_BASE}${movie.profile_path}`
       : "/placeholder.jpg";
 
   const genreText =
-    movie.genres?.length > 0
+    movie.genre ||
+    extraInfo.genres ||
+    (movie.genres?.length
       ? movie.genres.map((g) => g.name).join(", ")
-      : movie.genre ||
+      : movie.genre_ids?.join(", ") ||
         movie.known_for_department ||
-        movie.release_date ||
-        "Okänd genre";
+        movie.release_date?.slice(0, 4) ||
+        "Unknown genre");
 
   const overviewText =
+    movie.description ||
     movie.overview ||
+    extraInfo.overview ||
     movie.biography ||
     movie.tagline ||
-    movie.description ||
-    "Ingen beskrivning tillgänglig.";
+    "No description available.";
+
+  const ratingValue =
+    movie.rating ??
+    movie.vote_average ??
+    extraInfo.rating ??
+    (movie.voteAverage ? movie.voteAverage : null);
 
   return (
     <div
@@ -202,9 +240,9 @@ export default function MovieCard({ movie }) {
           {movie.title || movie.name || "Untitled"}
         </h3>
         <p className="text-xs text-gray-400 italic mb-1">{genreText}</p>
-        {(movie.rating || movie.vote_average) && (
+        {ratingValue && (
           <p className="text-sm text-yellow-300 mb-1">
-            ⭐ {(movie.rating || movie.vote_average).toFixed(1)}
+            ⭐ {Number(ratingValue).toFixed(1)}
           </p>
         )}
         <p className="text-xs text-gray-400 line-clamp-3 leading-snug">
