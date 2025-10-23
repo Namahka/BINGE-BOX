@@ -8,8 +8,12 @@ import {
   Navigate,
   Link,
 } from "react-router-dom";
-import { getPopularMovies, searchMovies, searchUsers, getMovieOfTheWeek } from "./api";
-
+import {
+  getPopularMovies,
+  searchMovies,
+  searchUsers,
+  getMovieOfTheWeek,
+} from "./api";
 
 import SearchBar from "./components/SearchBar";
 import MovieCard from "./components/MovieCard";
@@ -21,19 +25,18 @@ import Profile from "./pages/Profile";
 import Register from "./pages/Register";
 import UserMenu from "./components/UserMenu";
 import Settings from "./pages/Settings";
-import { Star, Key } from "lucide-react";
+import { Key } from "lucide-react";
 import UserProfile from "./pages/UserProfile";
 import { useAuth } from "./hooks/useAuth";
 import AdminPanel from "./pages/AdminPanel";
 import AdminFeatured from "./pages/AdminFeatured";
 
-
 // ===============================
-// 🟡 HEADER (Titel + User dropdown)
+// 🟡 HEADER
 // ===============================
 function Header({ onSearch, onClearSearch, searchRef }) {
   const navigate = useNavigate();
-  const { user } = useAuth(); // 👈 Hämta inloggad användare
+  const { user } = useAuth();
 
   const handleLogoClick = () => {
     onClearSearch();
@@ -51,7 +54,6 @@ function Header({ onSearch, onClearSearch, searchRef }) {
           BINGE BOX
         </h1>
 
-        {/* 👤 + 🗝️ Admin-ikon */}
         <div className="absolute right-6 top-2 flex gap-4 items-center">
           {user?.role === "Admin" && (
             <Link to="/admin" title="Admin Panel">
@@ -116,8 +118,6 @@ function HomePage({ movies, mode, query, category, onBack, loading }) {
     switch (key) {
       case "movie":
         return "Movies";
-      case "tv":
-        return "TV Shows";
       case "person":
         return "Celebrities";
       default:
@@ -127,14 +127,12 @@ function HomePage({ movies, mode, query, category, onBack, loading }) {
 
   return (
     <main className="min-h-screen bg-black text-white px-4 py-8 relative">
-      {/* 🔍 Visar sökinfo */}
+      {/* 🔍 Sökresultat info */}
       {mode === "search" && (
         <>
           <p className="mt-4 text-center text-gray-300">
             Showing results for{" "}
-            <span className="text-white">
-              {formatCategoryName(category)}
-            </span>{" "}
+            <span className="text-white">{formatCategoryName(category)}</span>{" "}
             matching <em className="text-white">"{query}"</em>
           </p>
 
@@ -147,7 +145,7 @@ function HomePage({ movies, mode, query, category, onBack, loading }) {
         </>
       )}
 
-      {/* 💡 Visa Movie of the Week ENDAST när mode === "popular" */}
+      {/* 🎞️ Movie of the Week */}
       {mode === "popular" && movieOfTheWeek && (
         <section
           className="relative h-[500px] w-full overflow-hidden mb-10 rounded-xl cursor-pointer group"
@@ -222,24 +220,20 @@ function HomePage({ movies, mode, query, category, onBack, loading }) {
               <div
                 key={m.id}
                 onClick={() => {
-  // Försök läsa typ från flera möjliga fält
-  const rawType = m.mediaType || m.media_type;
-  const type = rawType === "person" ? "person" : rawType === "tv" ? "tv" : "movie";
-
-  // Navigera rätt
-  navigate(
-    type === "person" ? `/person/${m.id}` : `/${type}/${m.id}`,
-    {
-      state: {
-        mediaType: type,
-        fromSearch: mode === "search",
-        query,
-        category,
-      },
-    }
-  );
-}}
-
+                  const rawType = (m.mediaType || m.media_type || "").toLowerCase();
+                  const type = rawType === "person" ? "person" : "movie";
+                  navigate(
+                    type === "person" ? `/person/${m.id}` : `/movie/${m.id}`,
+                    {
+                      state: {
+                        mediaType: type,
+                        fromSearch: mode === "search",
+                        query,
+                        category,
+                      },
+                    }
+                  );
+                }}
                 className="cursor-pointer hover:scale-105 transition-transform duration-200"
               >
                 <MovieCard movie={m} />
@@ -256,10 +250,8 @@ function HomePage({ movies, mode, query, category, onBack, loading }) {
   );
 }
 
-
-
 // ===============================
-// 🔒 ADMIN-SKYDD
+// 🔒 ADMIN SKYDD
 // ===============================
 function ProtectedAdminRoute({ children }) {
   const { user, loading } = useAuth();
@@ -287,7 +279,6 @@ function AppContent() {
   const location = useLocation();
   const searchRef = useRef(null);
 
-  // 🧭 Rensa sökning vid browser-back
   useEffect(() => {
     const handlePopState = () => {
       if (searchRef.current) searchRef.current.clearInput();
@@ -296,14 +287,25 @@ function AppContent() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
-  // 🟢 Ladda populära filmer vid start
   useEffect(() => {
     async function loadPopular() {
       try {
         setLoading(true);
         setError(null);
         const data = await getPopularMovies();
-        setMovies(data);
+
+        // 🚫 Filtrera bort TV även från API
+        const onlyMovies = Array.isArray(data)
+          ? data.filter(
+              (m) =>
+                m.mediaType !== "tv" &&
+                m.media_type !== "tv" &&
+                m.type !== "tv" &&
+                m.Type !== "tv"
+            )
+          : [];
+
+        setMovies(onlyMovies);
         setMode("popular");
       } catch (err) {
         console.error("⚠️ Fel vid hämtning:", err);
@@ -320,10 +322,7 @@ function AppContent() {
 
   const handleSearch = async (q, cat) => {
     console.log("🔍 handleSearch TRIGGAD", q, cat);
-    if (!q || !q.trim()) {
-      console.log("⚠️ Ingen sökterm angiven, avbryter sök.");
-      return;
-    }
+    if (!q || !q.trim()) return;
 
     setLoading(true);
     setError(null);
@@ -332,25 +331,24 @@ function AppContent() {
       let data = [];
 
       if (cat === "members") {
-        console.log("👥 Söker medlemmar...");
         data = await searchUsers(q);
       } else {
-        console.log("🎬 Söker filmer/serier...");
-        data = await searchMovies(q, cat);
+        data = await searchMovies(q, "movie"); // 🔥 tvinga bara film
       }
 
-      console.log("📦 DATA FRÅN API:", data);
-      const results = Array.isArray(data) ? data : [];
+      // 🚫 Filtrera bort tv
+      data = Array.isArray(data)
+        ? data.filter(
+            (m) =>
+              m.mediaType !== "tv" &&
+              m.media_type !== "tv" &&
+              m.type !== "tv" &&
+              m.Type !== "tv" &&
+              !m.first_air_date
+          )
+        : [];
 
-      const sorted =
-        cat === "members"
-          ? results.sort((a, b) => a.username.localeCompare(b.username))
-          : [
-              ...results.filter((item) => item.mediaType === "person"),
-              ...results.filter((item) => item.mediaType !== "person"),
-            ];
-
-      setMovies(sorted);
+      setMovies(data);
       setQuery(q);
       setCategory(cat);
       setMode("search");
@@ -365,7 +363,6 @@ function AppContent() {
     }
   };
 
-  // 🧹 Rensa sökning (logga, back-to-popular)
   const clearSearch = async () => {
     setQuery("");
     setCategory("all");
@@ -376,7 +373,18 @@ function AppContent() {
     try {
       setLoading(true);
       const data = await getPopularMovies();
-      setMovies(data);
+
+      const onlyMovies = Array.isArray(data)
+        ? data.filter(
+            (m) =>
+              m.mediaType !== "tv" &&
+              m.media_type !== "tv" &&
+              m.type !== "tv" &&
+              m.Type !== "tv"
+          )
+        : [];
+
+      setMovies(onlyMovies);
       navigate("/");
     } catch (err) {
       console.error("⚠️ Fel vid hämtning:", err);
@@ -409,37 +417,33 @@ function AppContent() {
             />
           }
         />
-          <Route path="/person/:id" element={<PersonDetails />} />
+        <Route path="/person/:id" element={<PersonDetails />} />
         <Route path="/movie/:id" element={<MovieDetails />} />
-        <Route path="/tv/:id" element={<MovieDetails />} />
-      
+
         <Route path="/login" element={<Login />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/register" element={<Register />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/user/:id" element={<UserProfile />} />
 
-        {/* 👑 Endast admin */}
-         {/* 👑 Endast admin */}
-<Route
-  path="/admin"
-  element={
-    <ProtectedAdminRoute>
-      <AdminPanel />
-    </ProtectedAdminRoute>
-  }
-/>
+        <Route
+          path="/admin"
+          element={
+            <ProtectedAdminRoute>
+              <AdminPanel />
+            </ProtectedAdminRoute>
+          }
+        />
 
-<Route
-  path="/admin/featured"
-  element={
-    <ProtectedAdminRoute>
-      <AdminFeatured />
-    </ProtectedAdminRoute>
-  }
-/>
-
-</Routes>
+        <Route
+          path="/admin/featured"
+          element={
+            <ProtectedAdminRoute>
+              <AdminFeatured />
+            </ProtectedAdminRoute>
+          }
+        />
+      </Routes>
     </>
   );
 }

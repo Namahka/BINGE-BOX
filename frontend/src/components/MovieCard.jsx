@@ -1,75 +1,132 @@
 import { useState, useEffect } from "react";
-import { Star } from "lucide-react";
+import { Star, Plus, Check, Clock, X, ArrowRightLeft } from "lucide-react";
 import { useFavorites } from "../hooks/useFavorites";
+import { useWatchlist } from "../hooks/useWatchlist";
 import LoginRequiredPopup from "./LoginRequiredPopup";
 import { useNavigate } from "react-router-dom";
 
 export default function MovieCard({ movie }) {
   const navigate = useNavigate();
   const { favorites, toggleFavorite } = useFavorites();
+  const {
+    watchlist,
+    addToWatchlist,
+    updateStatus,
+    moveItem,
+    removeFromWatchlist,
+  } = useWatchlist();
+
   const [showPopup, setShowPopup] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [status, setStatus] = useState(null);
 
-  // 🧠 Håll stjärnan uppdaterad
+  const movieId = Number(
+    movie.tmdbId ?? movie.tmdbID ?? movie.movieId ?? movie.MovieId ?? movie.id
+  );
+
   useEffect(() => {
-    const fav = favorites.some(
-      (f) => Number(f.movieId) === Number(movie.id || movie.movieId)
-    );
+    const fav = favorites.some((f) => Number(f.movieId) === Number(movieId));
     setIsFavorite(fav);
-  }, [favorites, movie]);
+  }, [favorites, movieId]);
 
-  // ⭐ Klick på stjärnan
-  const handleFavoriteClick = async (e) => {
+  useEffect(() => {
+    const item = watchlist.find((w) => Number(w.movieId) === Number(movieId));
+    setStatus(item ? item.status : null);
+  }, [watchlist, movieId]);
+
+  const handleFav = async (e) => {
     e.stopPropagation();
-
     const token = localStorage.getItem("token");
-    if (!token) {
-      setShowPopup(true);
-      return;
-    }
-
-    const el = document.getElementById(`fav-${movie.id || movie.movieId}`);
-    if (el) {
-      el.classList.add("scale-125");
-      setTimeout(() => el.classList.remove("scale-125"), 200);
-    }
-
+    if (!token) return setShowPopup(true);
     await toggleFavorite(movie);
   };
 
-  // 🎬 Bestäm rätt typ
-  const type =
-    movie.mediaType || movie.media_type || (movie.known_for_department ? "person" : "movie");
-
- // 🎬 Bildkälla (fixad)
-const poster = (() => {
-  if (movie.posterUrl && movie.posterUrl.startsWith("http")) return movie.posterUrl;
-  if (movie.profile && movie.profile.startsWith("http")) return movie.profile;
-  if (movie.poster_path)
-    return `https://image.tmdb.org/t/p/w500${movie.poster_path}`;
-  if (movie.profile_path)
-    return `https://image.tmdb.org/t/p/w500${movie.profile_path}`;
-  return "/placeholder.jpg";
-})();
-
-
-  // 🧭 Navigering beroende på typ
-  const handleClick = () => {
-    if (type === "person") navigate(`/person/${movie.id}`);
-    else if (type === "tv") navigate(`/tv/${movie.id}`);
-    else navigate(`/movie/${movie.id}`);
+  const handleMenu = (e) => {
+    e.stopPropagation();
+    const token = localStorage.getItem("token");
+    if (!token) return setShowPopup(true);
+    setShowMenu((v) => !v);
   };
+
+  const handleChoice = async (choice) => {
+    setShowMenu(false);
+    const token = localStorage.getItem("token");
+    if (!token) return setShowPopup(true);
+
+    if (choice === "remove") {
+      await removeFromWatchlist(movieId);
+      setStatus(null);
+      return;
+    }
+
+    if (choice === "move") {
+      const newStatus = status === "watched" ? "to-watch" : "watched";
+      setStatus(newStatus);
+      await moveItem(movieId, newStatus);
+      return;
+    }
+
+    if (!status) {
+      await addToWatchlist(movie, choice);
+      setStatus(choice);
+    } else {
+      await updateStatus(movieId, choice);
+      setStatus(choice);
+    }
+  };
+
+  // 🧭 Klick → ENDAST till /movie eller /person
+  const handleClick = () => {
+    if (!movieId) return;
+
+    const type =
+      movie.mediaType === "person" || movie.media_type === "person"
+        ? "person"
+        : "movie";
+
+    navigate(
+      type === "person" ? `/person/${movieId}` : `/movie/${movieId}`,
+      {
+        state: { mediaType: type, fromCard: true },
+      }
+    );
+  };
+
+  const poster =
+    movie.posterUrl && movie.posterUrl.startsWith("http")
+      ? movie.posterUrl
+      : movie.PosterUrl && movie.PosterUrl.startsWith("http")
+      ? movie.PosterUrl
+      : movie.poster_path
+      ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
+      : movie.profile_path
+      ? `https://image.tmdb.org/t/p/w500${movie.profile_path}`
+      : "/placeholder.jpg";
+
+  const genreText =
+    movie.genres?.length > 0
+      ? movie.genres.map((g) => g.name).join(", ")
+      : movie.genre ||
+        movie.known_for_department ||
+        movie.release_date ||
+        "Okänd genre";
+
+  const overviewText =
+    movie.overview ||
+    movie.biography ||
+    movie.tagline ||
+    movie.description ||
+    "Ingen beskrivning tillgänglig.";
 
   return (
     <div
-      className="relative bg-black border border-gray-700 rounded-xl overflow-hidden hover:scale-[1.03] transition-transform duration-200 cursor-pointer"
       onClick={handleClick}
+      className="relative bg-black border border-gray-700 rounded-xl overflow-hidden hover:scale-[1.03] transition-transform duration-200 cursor-pointer"
     >
-      {/* ⭐ Stjärna */}
       <button
-        id={`fav-${movie.id || movie.movieId}`}
-        onClick={handleFavoriteClick}
-        className={`absolute top-2 right-2 p-2 rounded-full transition-transform z-10 ${
+        onClick={handleFav}
+        className={`absolute top-2 right-2 p-2 rounded-full z-10 ${
           isFavorite
             ? "text-yellow-400 bg-black/80"
             : "text-gray-400 bg-black/70 hover:text-yellow-300"
@@ -82,28 +139,76 @@ const poster = (() => {
         />
       </button>
 
-      {/* 🎬 Bild */}
-      <img src={poster} alt={movie.title} className="w-full h-[300px] object-cover" />
+      <button
+        onClick={handleMenu}
+        className="absolute top-2 left-2 p-2 rounded-full bg-black/70 hover:bg-black/90 text-gray-300 hover:text-yellow-300 z-10"
+      >
+        {status === "watched" ? (
+          <Check size={22} className="text-green-400" />
+        ) : status === "to-watch" ? (
+          <Clock size={22} className="text-yellow-400" />
+        ) : (
+          <Plus size={22} />
+        )}
+      </button>
 
-      {/* 📄 Info */}
+      {showMenu && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="absolute top-12 left-2 bg-black/95 border border-gray-700 rounded-md text-sm shadow-lg z-20"
+        >
+          <button
+            onClick={() => handleChoice("watched")}
+            className="block w-full text-left px-4 py-2 text-green-400 hover:bg-green-600/20"
+          >
+            ✅ Watched
+          </button>
+          <button
+            onClick={() => handleChoice("to-watch")}
+            className="block w-full text-left px-4 py-2 text-yellow-400 hover:bg-yellow-600/20"
+          >
+            ⏰ To Watch
+          </button>
+          {status && (
+            <>
+              <button
+                onClick={() => handleChoice("move")}
+                className="block w-full text-left px-4 py-2 text-blue-400 hover:bg-blue-600/20"
+              >
+                <ArrowRightLeft size={16} className="inline mr-1" />
+                Move to {status === "watched" ? "To Watch" : "Watched"}
+              </button>
+              <button
+                onClick={() => handleChoice("remove")}
+                className="block w-full text-left px-4 py-2 text-red-400 hover:bg-red-600/20"
+              >
+                <X size={16} className="inline mr-1" />
+                Remove
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      <img
+        src={poster}
+        onError={(e) => (e.target.src = "/placeholder.jpg")}
+        alt={movie.title || movie.name}
+        className="w-full h-[300px] object-cover"
+      />
+
       <div className="p-3 text-center text-white">
         <h3 className="text-md font-semibold text-yellow-400 truncate mb-1">
-          {movie.title || movie.name || "Okänd titel"}
+          {movie.title || movie.name || "Untitled"}
         </h3>
-        <p className="text-xs text-gray-400 italic mb-1">
-          {movie.genre ||
-            movie.known_for_department ||
-            (movie.genres?.[0]?.name
-              ? movie.genres[0].name
-              : "Okänd genre")}
-        </p>
+        <p className="text-xs text-gray-400 italic mb-1">{genreText}</p>
         {(movie.rating || movie.vote_average) && (
           <p className="text-sm text-yellow-300 mb-1">
             ⭐ {(movie.rating || movie.vote_average).toFixed(1)}
           </p>
         )}
         <p className="text-xs text-gray-400 line-clamp-3 leading-snug">
-          {movie.overview || movie.biography || "Ingen beskrivning tillgänglig."}
+          {overviewText}
         </p>
       </div>
 

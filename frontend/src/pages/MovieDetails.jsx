@@ -11,7 +11,6 @@ export default function MovieDetails() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    // 🧠 Om vi är på /person/, ska denna komponent INTE göra något alls
     if (location.pathname.includes("/person/")) return;
 
     async function fetchMovie() {
@@ -19,20 +18,25 @@ export default function MovieDetails() {
         setLoading(true);
         setError(null);
 
-        // 🟡 Bestäm om det är film eller serie
-        const mediaType =
-          location.state?.mediaType ||
-          (location.pathname.includes("/tv/") ? "tv" : "movie");
+        // 🟡 Endast filmer
+        const mediaType = "movie";
 
         const res = await fetch(
           `https://localhost:7299/api/tmdb/details/${mediaType}/${id}`
         );
         if (!res.ok)
           throw new Error(
-            `Kunde inte hämta ${mediaType}-detaljer (${res.status})`
+            `Kunde inte hämta film-detaljer (${res.status})`
           );
 
         const data = await res.json();
+        console.log("🎬 MovieDetails fetched:", {
+          id,
+          mediaType,
+          fromState: location.state?.mediaType,
+          path: location.pathname,
+          data,
+        });
         setMovie(data);
       } catch (err) {
         console.error("❌ Fel vid hämtning:", err);
@@ -45,7 +49,7 @@ export default function MovieDetails() {
     if (id) fetchMovie();
   }, [id, location.state, location.pathname]);
 
-  if (location.pathname.includes("/person/")) return null; // 👈 Säkerhetsåtgärd
+  if (location.pathname.includes("/person/")) return null;
 
   if (loading)
     return <p className="text-center text-slate-400 mt-10">Laddar...</p>;
@@ -58,7 +62,6 @@ export default function MovieDetails() {
       <button
         onClick={() => {
           navigate(-1);
-          // triggar sökrutan att rensas i App.jsx
           window.dispatchEvent(new PopStateEvent("popstate"));
         }}
         className="mb-6 bg-yellow-500 hover:bg-yellow-400 text-black py-2 px-4 rounded"

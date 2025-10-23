@@ -1,14 +1,49 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Star } from "lucide-react";
-import { getProfile, getFollowers, getFollowing, getUserById } from "../api";
+import {
+  getProfile,
+  getFollowers,
+  getFollowing,
+  getUserById,
+} from "../api";
 import { useAuth } from "../hooks/useAuth";
 import { useFavorites } from "../hooks/useFavorites";
-import MovieCard from "../components/MovieCard"; // 👈 använder MovieCard
+import { useWatchlist } from "../hooks/useWatchlist";
+import MovieCard from "../components/MovieCard";
+
+// 🧭 Hjälpfunktion för säker navigering
+const navigateToMedia = (navigate, item) => {
+  if (!item) return;
+
+  const rawType =
+    item.mediaType || item.media_type || item.type || item.Type || "";
+  let type = "movie";
+
+  if (rawType.toLowerCase().includes("person")) type = "person";
+
+  const id = item.movieId || item.id;
+  if (!id) {
+    console.error("❌ navigateToMedia: saknar id", item);
+    return;
+  }
+
+  navigate(
+    type === "person" ? `/person/${id}` : `/movie/${id}`,
+    { state: { mediaType: type, fromProfile: true } }
+  );
+};
 
 export default function Profile() {
   const { user } = useAuth();
   const { favorites, toggleFavorite, reloadFavorites, loading } = useFavorites();
+  const {
+    watchlist,
+    loading: watchlistLoading,
+    updateStatus,
+    removeFromWatchlist,
+    moveItem,
+  } = useWatchlist();
 
   const [note, setNote] = useState("");
   const [aboutMe, setAboutMe] = useState("");
@@ -18,29 +53,30 @@ export default function Profile() {
   const [view, setView] = useState("about");
   const [isEditing, setIsEditing] = useState(false);
   const [favoritesList, setFavoritesList] = useState([]);
-  const [watchTab, setWatchTab] = useState("tv"); // 👈 tv / movies
-  const [watchSubTab, setWatchSubTab] = useState("watched"); // 👈 watched / toWatch
-
-  const [tvWatched, setTvWatched] = useState([]);
-  const [tvToWatch, setTvToWatch] = useState([]);
-  const [movieWatched, setMovieWatched] = useState([]);
-  const [movieToWatch, setMovieToWatch] = useState([]);
+  const [watchSubTab, setWatchSubTab] = useState("watched");
 
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
 
+  // 🟡 Initiera favoriter — bara när de ändras på riktigt
   useEffect(() => {
-    if (favorites && favorites.length > 0) setFavoritesList(favorites);
+    if (favorites && favorites.length > 0) {
+      setFavoritesList((prev) => {
+        const prevStr = JSON.stringify(prev);
+        const newStr = JSON.stringify(favorites);
+        return prevStr === newStr ? prev : favorites;
+      });
+    }
   }, [favorites]);
 
+  // 🟣 Ladda profil & följare endast en gång
   useEffect(() => {
-    if (!loading && favorites.length === 0) reloadFavorites();
-  }, [loading]);
-
-  useEffect(() => {
+    let mounted = true;
     async function loadProfile() {
       try {
         const data = await getProfile();
+        if (!mounted) return;
+
         setPreviewImage(data.profileImageUrl || "");
         setNote(data.note || "");
         setAboutMe(data.aboutMe || "");
@@ -70,26 +106,24 @@ export default function Profile() {
 
         setFollowers(await resolveUsers(f1));
         setFollowing(await resolveUsers(f2));
-
         await reloadFavorites();
-
-        // TODO: Hämta watchlist här (när backend är klart)
-        setTvWatched([]);
-        setTvToWatch([]);
-        setMovieWatched([]);
-        setMovieToWatch([]);
       } catch (err) {
         console.error("⚠️ Kunde inte hämta profil:", err);
       }
     }
     loadProfile();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
+  // 🖼️ Hantera profilbild-val
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) setPreviewImage(URL.createObjectURL(file));
   };
 
+  // 💾 Spara profiländringar
   const handleSave = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -120,6 +154,7 @@ export default function Profile() {
     }
   };
 
+  // 💛 Favorit-toggle
   const handleToggleFavorite = async (movie, e) => {
     if (e) e.stopPropagation();
     const realMovieId = Number(movie.movieId ?? movie.id);
@@ -163,6 +198,7 @@ export default function Profile() {
         Edit profile
       </button>
 
+      {/* Followers count */}
       <div className="flex gap-6 mt-6">
         <button
           onClick={() => setView("followers")}
@@ -180,7 +216,7 @@ export default function Profile() {
         </button>
       </div>
 
-      {/* Flikar */}
+      {/* Tabs */}
       <div className="flex gap-6 mt-8 border-b border-gray-700 pb-2">
         {["about", "favorites", "watchlist"].map((tab) => (
           <button
@@ -201,16 +237,15 @@ export default function Profile() {
         ))}
       </div>
 
-      {/* Innehåll */}
       <section className="mt-6 w-full max-w-5xl text-center">
-        {/* About */}
+        {/* ABOUT */}
         {view === "about" && (
           <div className="text-gray-400 space-y-4">
             <p>{aboutMe || "No about info added yet."}</p>
           </div>
         )}
 
-        {/* Favorites */}
+        {/* FAVORITES */}
         {view === "favorites" && (
           <section>
             <h2 className="text-xl font-bold text-yellow-400 mb-4">
@@ -223,9 +258,7 @@ export default function Profile() {
                 {favoritesList.map((m) => (
                   <div
                     key={Number(m.movieId || m.id)}
-                    onClick={() =>
-                      navigate(`/movie/${Number(m.movieId || m.id)}`)
-                    }
+                    onClick={() => navigateToMedia(navigate, m)}
                     className="relative group rounded-lg overflow-hidden border border-gray-700 cursor-pointer hover:scale-105 transition-transform duration-200"
                   >
                     <img
@@ -254,29 +287,11 @@ export default function Profile() {
           </section>
         )}
 
-        {/* 🟡 WATCHLIST */}
+        {/* WATCHLIST */}
         {view === "watchlist" && (
           <div className="mt-6">
-            {/* Underflikar */}
-            <div className="flex justify-center gap-6 border-b border-gray-700 pb-2">
-              {["tv", "movies"].map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setWatchTab(t)}
-                  className={`uppercase text-sm ${
-                    watchTab === t
-                      ? "text-yellow-400 border-b-2 border-yellow-400"
-                      : "text-gray-400"
-                  }`}
-                >
-                  {t === "tv" ? "TV SERIES" : "MOVIES"}
-                </button>
-              ))}
-            </div>
-
-            {/* Subflikar */}
-            <div className="flex justify-center gap-6 border-b border-gray-800 py-2 mt-3">
-              {["watched", "toWatch"].map((sub) => (
+            <div className="flex justify-center gap-6 border-b border-gray-800 py-2">
+              {["watched", "to-watch"].map((sub) => (
                 <button
                   key={sub}
                   onClick={() => setWatchSubTab(sub)}
@@ -291,52 +306,39 @@ export default function Profile() {
               ))}
             </div>
 
-            {/* Innehåll */}
             <div className="mt-6">
-              {watchTab === "tv" ? (
-                watchSubTab === "watched" ? (
-                  tvWatched.length ? (
+              {watchlistLoading ? (
+                <p className="text-gray-400">Loading...</p>
+              ) : (
+                (() => {
+                  const normalized = watchlist.map((w) => ({
+                    ...w,
+                    status: (w.status || w.Status || "").toLowerCase().trim(),
+                  }));
+
+                  const data =
+                    watchSubTab === "watched"
+                      ? normalized.filter((x) => x.status === "watched")
+                      : normalized.filter((x) => x.status === "to-watch");
+
+                  return data.length ? (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
-                      {tvWatched.map((m) => (
-                        <MovieCard key={m.id} movie={m} />
+                      {data.map((m) => (
+                        <MovieCard key={m.movieId} movie={m} />
                       ))}
                     </div>
                   ) : (
-                    <p className="text-gray-500">No watched TV shows yet.</p>
-                  )
-                ) : tvToWatch.length ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
-                    {tvToWatch.map((m) => (
-                      <MovieCard key={m.id} movie={m} />
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500">No TV shows to watch yet.</p>
-                )
-              ) : watchSubTab === "watched" ? (
-                movieWatched.length ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
-                    {movieWatched.map((m) => (
-                      <MovieCard key={m.id} movie={m} />
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500">No watched movies yet.</p>
-                )
-              ) : movieToWatch.length ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
-                  {movieToWatch.map((m) => (
-                    <MovieCard key={m.id} movie={m} />
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-500">No movies to watch yet.</p>
+                    <p className="text-gray-500 text-center mt-6">
+                      No {watchSubTab === "watched" ? "watched" : "to watch"} movies yet.
+                    </p>
+                  );
+                })()
               )}
             </div>
           </div>
         )}
 
-        {/* Followers & Following */}
+        {/* FOLLOWERS */}
         {view === "followers" && (
           <ul className="mt-6 flex flex-col items-center gap-3">
             {followers.length > 0 ? (
@@ -360,6 +362,7 @@ export default function Profile() {
           </ul>
         )}
 
+        {/* FOLLOWING */}
         {view === "following" && (
           <ul className="mt-6 flex flex-col items-center gap-3">
             {following.length > 0 ? (
@@ -384,7 +387,7 @@ export default function Profile() {
         )}
       </section>
 
-      {/* ✏️ Modal */}
+      {/* ✏️ Edit Modal */}
       {isEditing && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
           <div className="bg-black border p-6 rounded-2xl w-[90%] max-w-lg relative">
@@ -418,12 +421,11 @@ export default function Profile() {
             </div>
 
             <div className="mb-5">
-              <p className="font-semibold mb-2 text-white">Note (under profile)</p>
+              <p className="font-semibold mb-2 text-white">Note</p>
               <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 className="w-full bg-black border p-3 rounded text-white resize-none h-20 focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                placeholder="Kort anteckning..."
               ></textarea>
             </div>
 
@@ -433,7 +435,6 @@ export default function Profile() {
                 value={aboutMe}
                 onChange={(e) => setAboutMe(e.target.value)}
                 className="w-full bg-black border p-3 rounded text-white resize-none h-28 focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                placeholder="Skriv lite om dig själv..."
               ></textarea>
             </div>
 

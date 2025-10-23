@@ -23,14 +23,19 @@ export async function getPopularMovies(page = 1) {
 }
 
 // ===============================
-// 🔍 Söker filmer, serier eller personer
+// 🔍 Söker ENDAST filmer eller personer (TV är helt borttaget)
 // ===============================
 export async function searchMovies(query, category = "all", page = 1) {
   if (!query || !query.trim()) return [];
 
   try {
     const encoded = encodeURIComponent(query.trim());
-    const url = `${API_URL}/api/tmdb/search/${category}?query=${encoded}&page=${page}`;
+
+    // 🔒 Tvinga alltid "movie" när category är all eller tv
+    const safeCategory =
+      category === "tv" || category === "all" ? "movie" : category;
+
+    const url = `${API_URL}/api/tmdb/search/${safeCategory}?query=${encoded}&page=${page}`;
     console.log("📡 API-anrop:", url);
 
     const res = await fetch(url, {
@@ -41,32 +46,44 @@ export async function searchMovies(query, category = "all", page = 1) {
     if (!res.ok) throw new Error(`Fel ${res.status}: Kunde inte söka`);
     const data = await res.json();
 
+    // 📦 Normalisera data
     const results = Array.isArray(data) ? data : data.results || [];
-    const cleaned = results.filter(
-      (item) =>
+
+    // 🧹 Rensa bort ALLT som är serier eller saknar bild/titel
+    const cleaned = results.filter((item) => {
+      const type =
+        item.mediaType?.toLowerCase() ||
+        item.media_type?.toLowerCase() ||
+        "movie";
+      return (
+        type !== "tv" && // 🚫 bort med tv
         (item.posterUrl || item.poster_path || item.profile_path) &&
-        (item.overview || item.title)
+        (item.title || item.name)
+      );
+    });
+
+    // 🧠 Normalisera mediaType
+    const normalized = cleaned.map((item) => ({
+      ...item,
+      mediaType:
+        item.mediaType?.toLowerCase() ||
+        item.media_type?.toLowerCase() ||
+        "movie",
+    }));
+
+    // 🔝 Sortera efter popularitet
+    const sorted = normalized.sort(
+      (a, b) => (b.popularity || 0) - (a.popularity || 0)
     );
 
-  // 🧹 Normalisera mediaType från TMDb:s "media_type"
-const normalized = cleaned.map((item) => ({
-  ...item,
-  mediaType: item.mediaType || item.media_type || "movie",
-}));
-
-// 🔝 Sortera efter popularitet
-const sorted = normalized.sort(
-  (a, b) => (b.popularity || b.rating || 0) - (a.popularity || a.rating || 0)
-);
-
-console.log(`✅ Returnerar ${sorted.length} resultat`);
-return sorted;
-
+    console.log(`✅ Returnerar ${sorted.length} film/person-resultat`);
+    return sorted;
   } catch (err) {
     console.error("⚠️ Fel vid sökning:", err);
     return [];
   }
 }
+
 
 // ===============================
 // 🎥 Hämtar detaljer om film

@@ -9,7 +9,7 @@ export function FavoritesProvider({ children }) {
   const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 🧠 Hämta favoriter från backend
+  // 🧠 Hämta favoriter från backend (körs bara när det verkligen behövs)
   async function loadFavorites() {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -25,7 +25,13 @@ export function FavoritesProvider({ children }) {
       });
       if (!res.ok) throw new Error("Misslyckades hämta favoriter");
       const data = await res.json();
-      setFavorites(Array.isArray(data) ? data : []);
+
+      // ✅ Uppdatera endast om datan verkligen ändrats
+      setFavorites((prev) => {
+        const prevStr = JSON.stringify(prev);
+        const newStr = JSON.stringify(Array.isArray(data) ? data : []);
+        return prevStr === newStr ? prev : Array.isArray(data) ? data : [];
+      });
     } catch (err) {
       console.error("❌ Fel vid laddning av favoriter:", err);
       setFavorites([]);
@@ -34,16 +40,20 @@ export function FavoritesProvider({ children }) {
     }
   }
 
-  // 🟢 Ladda direkt om token redan finns (inte vänta på interval)
+  // 🟢 Ladda direkt om token redan finns (endast en gång)
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (token) loadFavorites();
-    else setLoading(false); // gästanvändare → klar direkt
-  }, []);
+    else setLoading(false);
+  }, []); // 🚀 inga dependencies => kör bara en gång
 
   // 🧭 Lyssna på authChange (login/logout)
   useEffect(() => {
-    const onAuthChange = () => loadFavorites();
+    const onAuthChange = () => {
+      const token = localStorage.getItem("token");
+      if (token) loadFavorites();
+      else setFavorites([]);
+    };
     window.addEventListener("authChange", onAuthChange);
     return () => window.removeEventListener("authChange", onAuthChange);
   }, []);
@@ -53,7 +63,7 @@ export function FavoritesProvider({ children }) {
     setFavorites([]);
   }
 
-  // ⭐ Toggle favorit
+  // ⭐ Toggle favorit (optimistisk + backend-synk)
   async function toggleFavorite(movie, showLoginPopup) {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -88,7 +98,7 @@ export function FavoritesProvider({ children }) {
       overview: movie.overview || "",
     };
 
-    // ⚡ Optimistisk uppdatering
+    // ⚡ Optimistisk uppdatering (lokalt)
     setFavorites((prev) => {
       const exists = prev.some((f) => Number(f.movieId) === movieId);
       return exists
@@ -109,7 +119,7 @@ export function FavoritesProvider({ children }) {
       if (!res.ok) throw new Error("Misslyckades uppdatera favorit");
       const result = await res.json();
 
-      // 🔁 Synka med backend
+      // 🔁 Synka korrekt med backend (utan dubbel render)
       setFavorites((prev) => {
         const cleaned = prev.filter((f) => Number(f.movieId) !== movieId);
         if (result.favorite) return [...cleaned, payload];
@@ -117,7 +127,7 @@ export function FavoritesProvider({ children }) {
       });
     } catch (err) {
       console.error("⚠️ toggleFavorite-fel:", err);
-      // Återställ från backend om något gick fel
+      // 🔄 Återställ från backend om något gick fel
       loadFavorites();
     }
   }

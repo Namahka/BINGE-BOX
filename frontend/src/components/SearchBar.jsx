@@ -19,14 +19,13 @@ const SearchBar = forwardRef(({ onSearch, onClearSearch }, ref) => {
     switch (category) {
       case "movie":
         return "Search movies...";
-      case "tv":
-        return "Search TV shows...";
+
       case "person":
         return "Search celebrities...";
       case "members":
         return "Search members...";
       default:
-        return "Search movies, TV, celebs, or members...";
+        return "Search movies, celebs, or members...";
     }
   };
 
@@ -42,7 +41,6 @@ const SearchBar = forwardRef(({ onSearch, onClearSearch }, ref) => {
       >
         <option value="all">All</option>
         <option value="movie">Movies</option>
-        <option value="tv">TV</option>
         <option value="person">Celebs</option>
         <option value="members">Members</option> {/* 👈 NY! */}
       </select>
