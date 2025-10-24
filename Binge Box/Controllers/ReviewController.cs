@@ -157,6 +157,64 @@ namespace BingeBox.Controllers
 
             return Ok(new { liked = true, likesCount = review.LikesCount });
         }
+        // ======================================================
+        // ✏️ PUT: api/reviews/{id}
+        // Redigera en review (endast ägaren)
+        // ======================================================
+        [HttpPut("{id}")]
+        [Authorize]
+        public async Task<IActionResult> EditReview(int id, [FromBody] Review updated)
+        {
+            var userIdClaim = User.FindFirst("nameid")?.Value
+                ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(userIdClaim))
+                return Unauthorized("Ingen giltig token hittades.");
+
+            var userId = int.Parse(userIdClaim);
+
+            var review = await _context.Reviews.FirstOrDefaultAsync(r => r.Id == id);
+            if (review == null)
+                return NotFound("Review not found.");
+
+            if (review.UserId != userId)
+                return Forbid("Du kan endast redigera dina egna reviews.");
+
+            review.Content = updated.Content ?? review.Content;
+            review.Rating = updated.Rating != 0 ? updated.Rating : review.Rating;
+            await _context.SaveChangesAsync();
+
+            return Ok(review);
+        }
+
+        // ======================================================
+        // ❌ DELETE: api/reviews/{id}
+        // Ta bort review (endast ägaren)
+        // ======================================================
+        [HttpDelete("{id}")]
+        [Authorize]
+        public async Task<IActionResult> DeleteReview(int id)
+        {
+            var userIdClaim = User.FindFirst("nameid")?.Value
+                ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(userIdClaim))
+                return Unauthorized("Ingen giltig token hittades.");
+
+            var userId = int.Parse(userIdClaim);
+
+            var review = await _context.Reviews.FirstOrDefaultAsync(r => r.Id == id);
+            if (review == null)
+                return NotFound("Review not found.");
+
+            if (review.UserId != userId)
+                return Forbid("Du kan endast ta bort dina egna reviews.");
+
+            _context.Reviews.Remove(review);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Review deleted successfully." });
+        }
 
     }
 }
