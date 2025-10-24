@@ -465,6 +465,18 @@ export async function getMovieOfTheWeek() {
   if (!res.ok) return null;
   return await res.json();
 }
+export async function getUserWatchlist(userId) {
+  const token = localStorage.getItem("token");
+  const res = await fetch(`http://localhost:7299/api/watchlist/user/${userId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  if (!res.ok) throw new Error("Failed to load user's watchlist");
+  return await res.json();
+}
+
+
 
 export async function setMovieOfTheWeek(movie) {
   const token = localStorage.getItem("token");

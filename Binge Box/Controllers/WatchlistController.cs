@@ -195,6 +195,16 @@ namespace BingeBox.Controllers
             await _context.SaveChangesAsync();
             return NoContent();
         }
+        [HttpGet("user/{userId}")]
+        public async Task<IActionResult> GetUserWatchlist(int userId)
+        {
+            var items = await _context.WatchlistItems
+                .Where(w => w.UserId == userId)
+                .ToListAsync();
+
+            return Ok(items);
+        }
+
 
         // --------------------------------------------------------
         // 🧩 Debug-endpoint
