@@ -294,32 +294,53 @@ const handleMove = async (id, newStatus) => {
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6 mt-4">
                 {favoritesList.map((m) => (
-                  <div
-                    key={Number(m.movieId || m.id)}
-                    onClick={() => navigateToMedia(navigate, m)}
-                    className="relative group rounded-lg overflow-hidden border border-gray-700 cursor-pointer hover:scale-105 transition-transform duration-200"
-                  >
-                    <img
-                      src={m.posterUrl || "/placeholder.jpg"}
-                      alt={m.title}
-                      className="w-full h-64 object-cover"
-                    />
-                    <button
-                      onClick={(e) => handleToggleFavorite(m, e)}
-                      className="absolute top-2 right-2 bg-black/70 p-1 rounded-full hover:bg-black transition"
-                    >
-                      <Star size={22} fill="#facc15" color="#facc15" />
-                    </button>
-                    <div className="p-2 text-center">
-                      <h3 className="text-sm font-semibold text-yellow-400 truncate">
-                        {m.title}
-                      </h3>
-                      <p className="text-xs text-gray-400">
-                        {m.genre || "Okänd genre"}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+  <div
+    key={Number(m.movieId || m.id)}
+    onClick={() => navigateToMedia(navigate, m)}
+    className="relative group rounded-lg overflow-hidden border border-gray-700 cursor-pointer hover:scale-105 transition-transform duration-200 bg-neutral-900"
+  >
+    {/* Poster */}
+    <img
+      src={m.posterUrl || "/placeholder.jpg"}
+      alt={m.title}
+      className="w-full h-64 object-cover"
+    />
+
+    {/* Toggle-knapp */}
+    <button
+      onClick={(e) => handleToggleFavorite(m, e)}
+      className="absolute top-2 right-2 bg-black/70 p-1 rounded-full hover:bg-black transition"
+    >
+      <Star size={22} fill="#facc15" color="#facc15" />
+    </button>
+
+    {/* Info */}
+    <div className="p-3 text-left">
+      <h3 className="text-sm font-semibold text-yellow-400 truncate">
+        {m.title}
+      </h3>
+
+      {m.genre && (
+        <p className="text-xs text-gray-400 mb-1 italic">
+          {m.genre}
+        </p>
+      )}
+
+      {m.rating && (
+        <p className="text-xs text-yellow-300 mb-1">
+          ⭐ {m.rating.toFixed(1)}
+        </p>
+      )}
+
+      {m.overview && (
+        <p className="text-xs text-gray-300 line-clamp-3">
+          {m.overview}
+        </p>
+      )}
+    </div>
+  </div>
+))}
+
               </div>
             )}
           </section>

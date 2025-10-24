@@ -9,7 +9,9 @@ export function FavoritesProvider({ children }) {
   const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 🧠 Hämta favoriter från backend (körs bara när det verkligen behövs)
+  // ===============================
+  // 🧠 Hämta favoriter från backend
+  // ===============================
   async function loadFavorites() {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -23,14 +25,34 @@ export function FavoritesProvider({ children }) {
       const res = await fetch(`${API_URL}/api/favorites`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+
       if (!res.ok) throw new Error("Misslyckades hämta favoriter");
       const data = await res.json();
+
+      // 🧩 Normalisera till samma format som watchlist-items
+      const normalized = (Array.isArray(data) ? data : []).map((f) => ({
+        id: f.id,
+        movieId: Number(f.movieId),
+        title: f.title?.trim() || "Okänd titel",
+        posterUrl:
+          f.posterUrl ||
+          (f.poster_path
+            ? `https://image.tmdb.org/t/p/w500${f.poster_path}`
+            : "/placeholder.jpg"),
+        genre:
+          f.genre ||
+          (f.genres?.length
+            ? f.genres.map((g) => g.name).join(", ")
+            : "Okänd genre"),
+        rating: f.rating || f.vote_average || 0, // ⭐ Betyg
+        overview: f.overview || "Ingen beskrivning tillgänglig.", // 📝 Beskrivning
+      }));
 
       // ✅ Uppdatera endast om datan verkligen ändrats
       setFavorites((prev) => {
         const prevStr = JSON.stringify(prev);
-        const newStr = JSON.stringify(Array.isArray(data) ? data : []);
-        return prevStr === newStr ? prev : Array.isArray(data) ? data : [];
+        const newStr = JSON.stringify(normalized);
+        return prevStr === newStr ? prev : normalized;
       });
     } catch (err) {
       console.error("❌ Fel vid laddning av favoriter:", err);
@@ -40,14 +62,18 @@ export function FavoritesProvider({ children }) {
     }
   }
 
-  // 🟢 Ladda direkt om token redan finns (endast en gång)
+  // ===============================
+  // 🟢 Init-laddning om token finns
+  // ===============================
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (token) loadFavorites();
     else setLoading(false);
-  }, []); // 🚀 inga dependencies => kör bara en gång
+  }, []);
 
-  // 🧭 Lyssna på authChange (login/logout)
+  // ===============================
+  // 🧭 Lyssna på authChange
+  // ===============================
   useEffect(() => {
     const onAuthChange = () => {
       const token = localStorage.getItem("token");
@@ -58,12 +84,16 @@ export function FavoritesProvider({ children }) {
     return () => window.removeEventListener("authChange", onAuthChange);
   }, []);
 
+  // ===============================
   // 🧹 Rensa vid logout
+  // ===============================
   function clearFavorites() {
     setFavorites([]);
   }
 
-  // ⭐ Toggle favorit (optimistisk + backend-synk)
+  // ===============================
+  // ⭐ Toggle favorit (optimistisk + backend)
+  // ===============================
   async function toggleFavorite(movie, showLoginPopup) {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -94,8 +124,8 @@ export function FavoritesProvider({ children }) {
         (movie.genres?.length
           ? movie.genres.map((g) => g.name).join(", ")
           : "Okänd genre"),
-      rating: movie.vote_average || movie.rating || 0,
-      overview: movie.overview || "",
+      rating: movie.vote_average || movie.rating || 0, // ⭐ Betyg
+      overview: movie.overview || "Ingen beskrivning tillgänglig.", // 📝 Beskrivning
     };
 
     // ⚡ Optimistisk uppdatering (lokalt)
@@ -119,7 +149,7 @@ export function FavoritesProvider({ children }) {
       if (!res.ok) throw new Error("Misslyckades uppdatera favorit");
       const result = await res.json();
 
-      // 🔁 Synka korrekt med backend (utan dubbel render)
+      // 🔁 Synka korrekt med backend
       setFavorites((prev) => {
         const cleaned = prev.filter((f) => Number(f.movieId) !== movieId);
         if (result.favorite) return [...cleaned, payload];
@@ -127,11 +157,13 @@ export function FavoritesProvider({ children }) {
       });
     } catch (err) {
       console.error("⚠️ toggleFavorite-fel:", err);
-      // 🔄 Återställ från backend om något gick fel
       loadFavorites();
     }
   }
 
+  // ===============================
+  // 📦 Returnera context
+  // ===============================
   return (
     <FavoritesContext.Provider
       value={{
