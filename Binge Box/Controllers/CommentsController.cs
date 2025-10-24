@@ -48,38 +48,45 @@ namespace BingeBox.Controllers
             _context.Comments.Add(comment);
             await _context.SaveChangesAsync();
 
-            var result = await _context.Comments
-                .Include(c => c.User)
-                .FirstOrDefaultAsync(c => c.Id == comment.Id);
+            // 🟡 Hämta användardata för svaret
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == comment.UserId);
 
-            return Ok(result);
+            return Ok(new
+            {
+                comment.Id,
+                comment.ReviewId,
+                comment.UserId,
+                comment.Content,
+                comment.CreatedAt,
+                Username = user?.Username ?? "Unknown",
+                ProfileImageUrl = user?.ProfileImageUrl ?? "/default-avatar.png"
+            });
         }
 
-        // =====================================================
-        // 🟣 GET: api/comments/review/{reviewId}
-        // Hämta alla kommentarer för en review
-        // =====================================================
+        // ✅ GET: api/comments/review/5
         [AllowAnonymous]
         [HttpGet("review/{reviewId}")]
-        public async Task<IActionResult> GetCommentsByReview(int reviewId)
+        public async Task<IActionResult> GetCommentsByReviewId(int reviewId)
         {
             var comments = await _context.Comments
-                .Include(c => c.User)
                 .Where(c => c.ReviewId == reviewId)
+                .Include(c => c.User) // 🟡 viktigt: laddar användardata
                 .OrderByDescending(c => c.CreatedAt)
                 .Select(c => new
                 {
                     c.Id,
                     c.ReviewId,
                     c.UserId,
-                    Username = c.User != null ? c.User.Username : "Unknown user",
                     c.Content,
-                    c.CreatedAt
+                    c.CreatedAt,
+                    Username = c.User.Username,
+                    ProfileImageUrl = c.User.ProfileImageUrl // 🟡 här skickas bilden!
                 })
                 .ToListAsync();
 
             return Ok(comments);
         }
+
 
         // =====================================================
         // ✏️ PUT: api/comments/{id}

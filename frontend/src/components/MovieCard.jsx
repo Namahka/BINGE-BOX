@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Star, Plus, Check, Clock, X, ArrowRightLeft } from "lucide-react";
+import { Star, Plus, Check, Clock, X, ArrowRightLeft, PenLine } from "lucide-react"; // ✏️ ny ikon
+
 import { useFavorites } from "../hooks/useFavorites";
 import { useWatchlist } from "../hooks/useWatchlist";
 import LoginRequiredPopup from "./LoginRequiredPopup";
@@ -191,56 +192,71 @@ export default function MovieCard({ movie, onRemove, onMove }) {
       </button>
 
       {/* ⏱️ Watchlist-menu */}
-      <button
-        onClick={handleMenu}
-        className="absolute top-2 left-2 p-2 rounded-full bg-black/70 hover:bg-black/90 text-gray-300 hover:text-yellow-300 z-10"
-      >
-        {status === "watched" ? (
-          <Check size={22} className="text-green-400" />
-        ) : status === "to-watch" ? (
-          <Clock size={22} className="text-yellow-400" />
-        ) : (
-          <Plus size={22} />
-        )}
-      </button>
+<button
+  onClick={handleMenu}
+  className="absolute top-2 left-2 p-2 rounded-full bg-black/70 hover:bg-black/90 text-gray-300 hover:text-yellow-300 z-10"
+>
+  {status === "watched" ? (
+    <Check size={22} className="text-green-400" />
+  ) : status === "to-watch" ? (
+    <Clock size={22} className="text-yellow-400" />
+  ) : (
+    <Plus size={22} />
+  )}
+</button>
 
-      {showMenu && (
-        <div
-          onClick={(e) => e.stopPropagation()}
-          className="absolute top-12 left-2 bg-black/95 border border-gray-700 rounded-md text-sm shadow-lg z-20"
+{showMenu && (
+  <div
+    onClick={(e) => e.stopPropagation()}
+    className="absolute top-12 left-2 bg-black/95 border border-gray-700 rounded-md text-sm shadow-lg z-20"
+  >
+    <button
+      onClick={() => handleChoice("watched")}
+      className="block w-full text-left px-4 py-2 text-green-400 hover:bg-green-600/20"
+    >
+      ✅ Watched
+    </button>
+    <button
+      onClick={() => handleChoice("to-watch")}
+      className="block w-full text-left px-4 py-2 text-yellow-400 hover:bg-yellow-600/20"
+    >
+      ⏰ To Watch
+    </button>
+    {status && (
+      <>
+        <button
+          onClick={() => handleChoice("move")}
+          className="block w-full text-left px-4 py-2 text-blue-400 hover:bg-blue-600/20"
         >
-          <button
-            onClick={() => handleChoice("watched")}
-            className="block w-full text-left px-4 py-2 text-green-400 hover:bg-green-600/20"
-          >
-            ✅ Watched
-          </button>
-          <button
-            onClick={() => handleChoice("to-watch")}
-            className="block w-full text-left px-4 py-2 text-yellow-400 hover:bg-yellow-600/20"
-          >
-            ⏰ To Watch
-          </button>
-          {status && (
-            <>
-              <button
-                onClick={() => handleChoice("move")}
-                className="block w-full text-left px-4 py-2 text-blue-400 hover:bg-blue-600/20"
-              >
-                <ArrowRightLeft size={16} className="inline mr-1" />
-                Move to {status === "watched" ? "To Watch" : "Watched"}
-              </button>
-              <button
-                onClick={() => handleChoice("remove")}
-                className="block w-full text-left px-4 py-2 text-red-400 hover:bg-red-600/20"
-              >
-                <X size={16} className="inline mr-1" />
-                Remove
-              </button>
-            </>
-          )}
-        </div>
-      )}
+          <ArrowRightLeft size={16} className="inline mr-1" />
+          Move to {status === "watched" ? "To Watch" : "Watched"}
+        </button>
+        <button
+          onClick={() => handleChoice("remove")}
+          className="block w-full text-left px-4 py-2 text-red-400 hover:bg-red-600/20"
+        >
+          <X size={16} className="inline mr-1" />
+          Remove from Watchlist
+        </button>
+      </>
+    )}
+  </div>
+)}
+{/* ✏️ Review button (flyttad till bildens nedre högra hörn) */}
+<div className="absolute bottom-36 right-1 z-10">
+  <button
+    onClick={(e) => {
+      e.stopPropagation();
+      const token = localStorage.getItem("token");
+      if (!token) return setShowPopup(true);
+      navigate(`/movie/${movieId}/review`);
+    }}
+    className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold px-3 py-1 rounded-lg text-xs flex items-center gap-1 shadow-md bg-opacity-90 hover:bg-opacity-100"
+  >
+    <PenLine size={14} />
+    Review
+  </button>
+</div>
 
       <img
         src={poster}

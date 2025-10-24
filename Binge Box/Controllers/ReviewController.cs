@@ -113,50 +113,7 @@ namespace BingeBox.Controllers
 
             return Ok(reviews);
         }
-        // ❤️ POST: api/reviews/{id}/like
-        [HttpPost("{id}/like")]
-        [Authorize]
-        public async Task<IActionResult> ToggleLike(int id)
-        {
-            var userIdClaim = User.FindFirst("nameid")?.Value
-                ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-            if (string.IsNullOrEmpty(userIdClaim))
-                return Unauthorized("Ingen giltig token hittades.");
-
-            var userId = int.Parse(userIdClaim);
-
-            var review = await _context.Reviews.FindAsync(id);
-            if (review == null)
-                return NotFound("Review not found.");
-
-            var existingLike = await _context.ReviewLikes
-                .FirstOrDefaultAsync(l => l.ReviewId == id && l.UserId == userId);
-
-            if (existingLike != null)
-            {
-                // ❌ Ta bort like (toggle)
-                _context.ReviewLikes.Remove(existingLike);
-                review.LikesCount = Math.Max(0, review.LikesCount - 1);
-                await _context.SaveChangesAsync();
-
-                return Ok(new { liked = false, likesCount = review.LikesCount });
-            }
-
-            // ❤️ Lägg till like
-            var like = new ReviewLike
-            {
-                ReviewId = id,
-                UserId = userId,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            _context.ReviewLikes.Add(like);
-            review.LikesCount++;
-            await _context.SaveChangesAsync();
-
-            return Ok(new { liked = true, likesCount = review.LikesCount });
-        }
+       
         // ======================================================
         // ✏️ PUT: api/reviews/{id}
         // Redigera en review (endast ägaren)

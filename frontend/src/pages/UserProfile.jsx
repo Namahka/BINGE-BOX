@@ -6,6 +6,7 @@ import {
   getFollowing,
   getUserFavorites,
   getUserWatchlist,
+  getUserReviews,
   toggleFollow,
   isFollowing,
 } from "../api";
@@ -13,6 +14,8 @@ import { useAuth } from "../hooks/useAuth";
 import { useFavorites } from "../hooks/useFavorites";
 import { Star } from "lucide-react";
 import MovieCard from "../components/MovieCard";
+import CommentModal from "../components/CommentModal";
+
 
 // 🧭 Hjälpfunktion för att navigera till rätt mediatyp
 const navigateToMedia = (navigate, item) => {
@@ -31,10 +34,9 @@ const navigateToMedia = (navigate, item) => {
   const id = item.movieId || item.id;
   if (!id) return;
 
-  navigate(
-    type === "person" ? `/person/${id}` : `/${type}/${id}`,
-    { state: { mediaType: type, fromProfile: true } }
-  );
+  navigate(type === "person" ? `/person/${id}` : `/${type}/${id}`, {
+    state: { mediaType: type, fromProfile: true },
+  });
 };
 
 export default function UserProfile() {
@@ -48,11 +50,14 @@ export default function UserProfile() {
   const [following, setFollowing] = useState([]);
   const [favorites, setFavorites] = useState([]);
   const [watchlist, setWatchlist] = useState([]);
+  const [reviews, setReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
   const [amFollowing, setAmFollowing] = useState(false);
   const [view, setView] = useState("about");
   const [loading, setLoading] = useState(true);
   const [followLoading, setFollowLoading] = useState(false);
   const [watchSubTab, setWatchSubTab] = useState("watched");
+const [activeReviewId, setActiveReviewId] = useState(null);
 
   const isOwnProfile = currentUser && parseInt(id) === currentUser.id;
 
@@ -64,17 +69,21 @@ export default function UserProfile() {
         const data = await getUserById(id);
         setUser(data);
 
-        const [f1, f2, favs, wl] = await Promise.all([
+        const [f1, f2, favs, wl, revs] = await Promise.all([
           getFollowers(id),
           getFollowing(id),
           getUserFavorites(id),
           getUserWatchlist(id),
+          getUserReviews(id),
         ]);
 
         setFollowers(f1);
         setFollowing(f2);
         setFavorites(favs);
         setWatchlist(wl);
+
+        // 🔸 Ladda reviews med TMDB-data
+        await loadUserReviews(revs);
 
         if (currentUser && !isOwnProfile) {
           const followState = await isFollowing(id);
@@ -89,6 +98,55 @@ export default function UserProfile() {
 
     loadUser();
   }, [id, currentUser]);
+
+  // 🔹 Hämta TMDB-info till varje review
+  async function loadUserReviews(reviewsData) {
+    try {
+      setReviewsLoading(true);
+      if (!Array.isArray(reviewsData)) {
+        setReviews([]);
+        return;
+      }
+
+      const TMDB_KEY = "ce1d432c64f5d84d0cc30b70d6f30600";
+      const enriched = await Promise.all(
+        reviewsData.map(async (r) => {
+          try {
+            const res = await fetch(
+              `https://api.themoviedb.org/3/movie/${r.movieId}?api_key=${TMDB_KEY}&language=en-US`
+            );
+            if (!res.ok) throw new Error("TMDB error");
+            const movie = await res.json();
+            return {
+              ...r,
+              title: movie.title || r.title || `Movie ID: ${r.movieId}`,
+              year: movie.release_date
+                ? movie.release_date.slice(0, 4)
+                : movie.first_air_date
+                ? movie.first_air_date.slice(0, 4)
+                : "—",
+              posterUrl: movie.poster_path
+                ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
+                : null,
+            };
+          } catch {
+            return {
+              ...r,
+              title: r.title || `Movie ID: ${r.movieId}`,
+              year: "—",
+              posterUrl: null,
+            };
+          }
+        })
+      );
+
+      setReviews(enriched);
+    } catch (err) {
+      console.error("⚠️ Kunde inte hämta reviews:", err);
+    } finally {
+      setReviewsLoading(false);
+    }
+  }
 
   // 💛 Följ / avfölj
   async function handleFollow() {
@@ -124,9 +182,7 @@ export default function UserProfile() {
 
   if (!user)
     return (
-      <p className="text-red-500 text-center mt-10">
-        Could not load profile.
-      </p>
+      <p className="text-red-500 text-center mt-10">Could not load profile.</p>
     );
 
   return (
@@ -148,8 +204,8 @@ export default function UserProfile() {
           disabled={followLoading}
           className={`mt-4 px-5 py-2 rounded-lg font-semibold transition-colors ${
             amFollowing
-              ? "bg-gray-600 hover:bg-gray-700 text-white"
-              : "bg-yellow-400 hover:bg-yellow-500 text-black"
+              ? "bg-black border hover:bg-yellow-500 hover:text-black text-white"
+              : "bg-black border hover:bg-yellow-500 hover:text-black text-white"
           } ${followLoading ? "opacity-70 cursor-not-allowed" : ""}`}
         >
           {followLoading
@@ -182,7 +238,7 @@ export default function UserProfile() {
 
       {/* Tabs */}
       <div className="flex gap-6 mt-8 border-b border-gray-700 pb-2">
-        {["about", "favorites", "watchlist"].map((tab) => (
+        {["about", "favorites", "watchlist", "reviews"].map((tab) => (
           <button
             key={tab}
             onClick={() => setView(tab)}
@@ -196,7 +252,9 @@ export default function UserProfile() {
               ? "About"
               : tab === "favorites"
               ? "Favorites"
-              : "Watchlist"}
+              : tab === "watchlist"
+              ? "Watchlist"
+              : "Reviews"}
           </button>
         ))}
       </div>
@@ -301,7 +359,9 @@ export default function UserProfile() {
                 (() => {
                   const normalized = watchlist.map((w) => ({
                     ...w,
-                    status: String(w.status || w.Status || "").toLowerCase().trim(),
+                    status: String(
+                      w.status || w.Status || ""
+                    ).toLowerCase().trim(),
                   }));
 
                   const data =
@@ -317,13 +377,202 @@ export default function UserProfile() {
                     </div>
                   ) : (
                     <p className="text-gray-500 text-center mt-6">
-                      No {watchSubTab === "watched" ? "watched" : "to watch"} items yet.
+                      No{" "}
+                      {watchSubTab === "watched"
+                        ? "watched"
+                        : "to watch"}{" "}
+                      items yet.
                     </p>
                   );
                 })()
               )}
             </div>
           </div>
+        )}
+
+        {/* REVIEWS */}
+        {view === "reviews" && (
+          <section className="mt-6 w-full max-w-4xl mx-auto">
+            <h2 className="text-xl font-bold text-yellow-400 mb-5">
+              {isOwnProfile ? "My Reviews" : `${user.username}'s Reviews`}
+            </h2>
+
+            {reviewsLoading ? (
+              <p className="text-gray-400">Loading...</p>
+            ) : reviews.length === 0 ? (
+              <p className="text-gray-500">
+                {isOwnProfile
+                  ? "You haven’t written any reviews yet."
+                  : "This user hasn’t written any reviews yet."}
+              </p>
+            ) : (
+              <div className="space-y-8">
+                {reviews.map((r) => (
+                  <div
+                    key={r.id}
+                    className="flex flex-col sm:flex-row gap-4 bg-neutral-900 border border-gray-700 rounded-xl p-4 shadow-lg transition hover:border-yellow-400"
+                  >
+                    {/* 🎞️ Poster */}
+                    <div
+                      onClick={() => navigate(`/movie/${r.movieId}`)}
+                      className="cursor-pointer shrink-0"
+                    >
+                      <img
+                        src={r.posterUrl ? r.posterUrl : "/placeholder.jpg"}
+                        onError={(e) =>
+                          (e.currentTarget.src = "/placeholder.jpg")
+                        }
+                        alt={r.title || "Movie poster"}
+                        className="w-20 sm:w-24 rounded-md border border-yellow-500/40 shadow-md hover:opacity-90 transition"
+                      />
+                    </div>
+
+                    {/* 📋 Review Content */}
+                    <div className="flex flex-col justify-between flex-1 text-left">
+                      {/* 🎬 Titel, år, rating, watched */}
+                      <div className="flex justify-between items-start flex-wrap">
+                        <div
+                          onClick={() => navigate(`/movie/${r.movieId}`)}
+                          className="cursor-pointer"
+                        >
+                          <h3 className="text-xl font-bold text-yellow-400 hover:underline">
+                            {r.title}
+                          </h3>
+                          <p className="text-gray-400 text-sm mt-1">
+                            {r.year}
+                          </p>
+                        </div>
+
+                        <div className="text-right">
+                          {r.rating && (
+                            <div className="text-yellow-400 flex items-center justify-end gap-1">
+                              {"★".repeat(Math.round(r.rating))}
+                              <span className="text-gray-400 text-sm ml-1">
+                                ({r.rating}/5)
+                              </span>
+                            </div>
+                          )}
+                          <p className="text-gray-300 text-sm flex items-center justify-end gap-1 mt-1">
+                            <span className="text-green-400">★</span> Watched
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* 📝 Text */}
+                      <p className="text-gray-300 mt-3 leading-relaxed whitespace-pre-line">
+                        {r.content}
+                      </p>
+
+                 {/* ❤️ Likes + 💬 Comments + ✏️ Edit/Delete */}
+<div className="flex justify-between items-center mt-4 text-sm text-gray-400">
+  <div className="flex items-center gap-5">
+    {/* 👍 Like */}
+    <button
+      onClick={async () => {
+        try {
+          const token = localStorage.getItem("token");
+          if (!token) {
+            alert("You must be logged in to like reviews!");
+            return;
+          }
+
+          const res = await fetch(
+            `http://localhost:7299/api/reviewlikes/${r.id}/toggle`,
+            {
+              method: "POST",
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+
+          if (res.ok) {
+            const data = await res.json();
+            setReviews((prev) =>
+              prev.map((rev) =>
+                rev.id === r.id
+                  ? { ...rev, likesCount: data.likesCount }
+                  : rev
+              )
+            );
+          }
+        } catch (err) {
+          console.error("⚠️ Failed to toggle like:", err);
+        }
+      }}
+      className="flex items-center gap-1 hover:text-yellow-400 transition"
+      title="Like review"
+    >
+      <span>👍</span>
+      <span>{r.likesCount ?? 0}</span>
+    </button>
+
+    {/* 💬 Comments */}
+    <button
+      onClick={() => setActiveReviewId(r.id)}
+      className="flex items-center gap-1 hover:text-yellow-400 transition"
+      title="Comment on review"
+    >
+      💬 <span>{r.commentCount ?? 0}</span>
+    </button>
+  </div>
+
+  {/* ✏️ Edit/Delete – endast om det är ens egen profil */}
+  {isOwnProfile && (
+    <div className="flex gap-3">
+      <button
+        onClick={() =>
+          navigate(`/movie/${r.movieId}/review/edit/${r.id}`, {
+            state: { review: r },
+          })
+        }
+        className="hover:text-yellow-400 transition"
+      >
+      Edit
+      </button>
+
+      <button
+        onClick={async () => {
+          if (window.confirm("Are you sure you want to delete this review?")) {
+            const token = localStorage.getItem("token");
+            await fetch(`http://localhost:7299/api/reviews/${r.id}`, {
+              method: "DELETE",
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            setReviews((prev) => prev.filter((rev) => rev.id !== r.id));
+          }
+        }}
+        className="hover:text-red-500 transition"
+      >
+        Delete
+      </button>
+    </div>
+  )}
+</div>
+
+{/* 🔽 Comment Modal */}
+{activeReviewId === r.id && (
+ <CommentModal
+  reviewId={r.id}
+  currentUser={currentUser}
+  onClose={() => setActiveReviewId(null)}
+  onCommentCountChange={(count) =>
+    setReviews((prev) =>
+      prev.map((rev) =>
+        rev.id === r.id ? { ...rev, commentCount: count } : rev
+      )
+    )
+  }
+/>
+
+)}
+
+
+
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
         )}
 
         {/* FOLLOWERS */}

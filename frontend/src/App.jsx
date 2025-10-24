@@ -30,6 +30,8 @@ import UserProfile from "./pages/UserProfile";
 import { useAuth } from "./hooks/useAuth";
 import AdminPanel from "./pages/AdminPanel";
 import AdminFeatured from "./pages/AdminFeatured";
+import ReviewPage from "./pages/ReviewPage";
+import EditReview from "./pages/EditReview";
 
 // ===============================
 // 🟡 HEADER
@@ -206,7 +208,7 @@ function HomePage({ movies, mode, query, category, onBack, loading }) {
               <div
                 key={u.id}
                 onClick={() => navigate(`/user/${u.id}`)}
-                className="cursor-pointer bg-yellow-500 hover:bg-yellow-400 text-black rounded-xl p-4 flex flex-col items-center justify-center transition-transform hover:scale-105 shadow-md"
+                className="cursor-pointer bg-black hover:bg-yellow-400 text-white hover:text-black border rounded-xl p-4 flex flex-col items-center justify-center transition-transform hover:scale-105 shadow-md"
               >
                 <img
                   src={u.profileImageUrl || "/default-avatar.png"}
@@ -425,6 +427,9 @@ function AppContent() {
         <Route path="/register" element={<Register />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/user/:id" element={<UserProfile />} />
+        <Route path="/movie/:id/review" element={<ReviewPage />} />
+<Route path="/movie/:id/review/edit/:reviewId" element={<EditReview />} />
+
 
         <Route
           path="/admin"

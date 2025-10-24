@@ -476,6 +476,11 @@ export async function getUserWatchlist(userId) {
   return await res.json();
 }
 
+export async function getUserReviews(userId) {
+  const res = await fetch(`http://localhost:7299/api/reviews/user/${userId}`);
+  if (!res.ok) throw new Error("Failed to fetch user reviews");
+  return await res.json();
+}
 
 
 export async function setMovieOfTheWeek(movie) {
