@@ -23,7 +23,7 @@ namespace BingeBox.Controllers
             { 35, "Comedy" }, { 80, "Crime" }, { 99, "Documentary" },
             { 18, "Drama" }, { 10751, "Family" }, { 14, "Fantasy" },
             { 36, "History" }, { 27, "Horror" }, { 10402, "Music" },
-            { 9648, "Mystery" }, { 10749, "Romance" }, { 878, "Sci-Fi" },
+            { 9648, "Mystery" }, { 10749, "Romance" }, { 878, "Science Fiction" },
             { 10770, "TV Movie" }, { 53, "Thriller" }, { 10752, "War" },
             { 37, "Western" }
         };
@@ -226,6 +226,89 @@ namespace BingeBox.Controllers
                 biography,
                 profile,
                 knownFor
+            });
+        }
+
+        // 🧭 BROWSE — år, årtionde, genre, rating, upcoming
+        [HttpGet("browse")]
+        public async Task<IActionResult> BrowseMovies(
+            [FromQuery] string? year = null,
+            [FromQuery] string? genre = null,
+            [FromQuery] double? minRating = null,
+            [FromQuery] int page = 1)
+        {
+            var baseUrl = "https://api.themoviedb.org/3/discover/movie";
+            var apiKey = "ce1d432c64f5d84d0cc30b70d6f30600";
+            var url = $"{baseUrl}?api_key={apiKey}&language=en-US&page={page}&sort_by=popularity.desc";
+
+            // 🎬 Hantera år / årtionde / upcoming
+            if (!string.IsNullOrEmpty(year))
+            {
+                if (year.EndsWith("s"))
+                {
+                    var decade = int.Parse(year[..4]);
+                    url += $"&primary_release_date.gte={decade}-01-01&primary_release_date.lte={decade + 9}-12-31";
+                }
+                else if (year.Equals("upcoming", StringComparison.OrdinalIgnoreCase))
+                {
+                    var today = DateTime.UtcNow.ToString("yyyy-MM-dd");
+                    url += $"&primary_release_date.gte={today}";
+                }
+                else if (int.TryParse(year, out int singleYear))
+                {
+                    url += $"&primary_release_year={singleYear}";
+                }
+            }
+
+            // 🎭 Genre
+            if (!string.IsNullOrEmpty(genre))
+            {
+                var match = GenreMap.FirstOrDefault(g => g.Value.Equals(genre, StringComparison.OrdinalIgnoreCase));
+                if (match.Key != 0)
+                    url += $"&with_genres={match.Key}";
+            }
+
+            // ⭐ Min rating
+            if (minRating.HasValue)
+                url += $"&vote_average.gte={minRating.Value}";
+
+            // 🔹 Hämta data
+            using var client = new HttpClient();
+            var response = await client.GetAsync(url);
+            if (!response.IsSuccessStatusCode)
+                return StatusCode((int)response.StatusCode, "TMDb API request failed");
+
+            var json = await response.Content.ReadAsStringAsync();
+            var doc = JsonDocument.Parse(json);
+            var results = doc.RootElement.GetProperty("results");
+
+            var movies = new List<object>();
+            foreach (var m in results.EnumerateArray())
+            {
+                movies.Add(new
+                {
+                    id = m.GetProperty("id").GetInt32(),
+                    title = m.TryGetProperty("title", out var t) ? t.GetString() : null,
+                    overview = m.TryGetProperty("overview", out var o) ? o.GetString() : null,
+                    rating = m.TryGetProperty("vote_average", out var r) ? r.GetDouble() : 0,
+                    releaseDate = m.TryGetProperty("release_date", out var d) ? d.GetString() : null,
+                    posterUrl = m.TryGetProperty("poster_path", out var p) && p.ValueKind != JsonValueKind.Null
+                        ? $"https://image.tmdb.org/t/p/w500{p.GetString()}"
+                        : null,
+                    genre = m.TryGetProperty("genre_ids", out var g) && g.ValueKind == JsonValueKind.Array
+                        ? string.Join(", ", g.EnumerateArray().Select(id =>
+                            GenreMap.ContainsKey(id.GetInt32()) ? GenreMap[id.GetInt32()] : "Okänd"))
+                        : "Okänd genre"
+                });
+            }
+
+            var totalPages = doc.RootElement.TryGetProperty("total_pages", out var tp) ? tp.GetInt32() : 1;
+
+            return Ok(new
+            {
+                currentPage = page,
+                totalPages,
+                movies
             });
         }
     }

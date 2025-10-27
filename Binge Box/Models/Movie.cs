@@ -20,6 +20,9 @@ namespace BingeBox.Models
         public string? Genre { get; set; }
 
         public DateTime ReleaseDate { get; set; }
+        [MaxLength(150)]
+        public string? Slug { get; set; }
+
 
         [MaxLength(500)]
         public string? PosterUrl { get; set; } // länk till filmens bild
