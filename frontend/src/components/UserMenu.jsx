@@ -52,16 +52,7 @@ export default function UserMenu() {
                 My Page
               </button>
 
-              {/* ⚙️ Inställningar */}
-              <button
-                onClick={() => {
-                  navigate("/settings");
-                  setOpen(false);
-                }}
-                className="w-full text-left px-4 py-2 hover:bg-yellow-400 hover:text-black transition"
-              >
-                Settings
-              </button>
+              
 
               {/* 🗝️ Admin-knapp (endast om rollen är Admin) */}
               {user.role === "Admin" && (

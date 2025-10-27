@@ -16,7 +16,7 @@ namespace BingeBox.Controllers
             _context = context;
         }
 
-        // 🔹 Hämta aktiv film
+        // 🔹 GET – öppen för alla (frontend hämtar denna)
         [HttpGet]
         [AllowAnonymous]
         public async Task<IActionResult> GetMovieOfTheWeek()
@@ -31,7 +31,7 @@ namespace BingeBox.Controllers
             return Ok(movie);
         }
 
-        // 🔸 Uppdatera / välj ny (endast Admin)
+        // 🔸 POST – endast Admin får köra (via JWT)
         [HttpPost("set")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> SetMovieOfTheWeek([FromBody] MovieOfTheWeek newMovie)
@@ -39,7 +39,6 @@ namespace BingeBox.Controllers
             if (newMovie == null)
                 return BadRequest("Ingen filmdata mottagen.");
 
-            // ✅ Bygg kompletta bild-URL:er om bara paths skickas
             string? posterUrl = newMovie.PosterUrl;
             string? backdropUrl = newMovie.BackdropUrl;
 
@@ -49,7 +48,6 @@ namespace BingeBox.Controllers
             if (!string.IsNullOrWhiteSpace(backdropUrl) && !backdropUrl.StartsWith("http"))
                 backdropUrl = $"https://image.tmdb.org/t/p/original{backdropUrl}";
 
-            // 🧱 Skapa ny entitet
             var movie = new MovieOfTheWeek
             {
                 MovieId = newMovie.MovieId,
@@ -62,7 +60,6 @@ namespace BingeBox.Controllers
                 SelectedAt = DateTime.UtcNow
             };
 
-            // 💾 Spara i databasen
             _context.MovieOfTheWeek.Add(movie);
             await _context.SaveChangesAsync();
 

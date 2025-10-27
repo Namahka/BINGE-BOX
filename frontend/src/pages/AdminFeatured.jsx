@@ -115,7 +115,7 @@ export default function AdminFeatured() {
     <main className="min-h-screen bg-black text-white px-6 py-10">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-4xl font-bold text-yellow-400 mb-6">
-          🎬 Set Movie of the Week
+          Movie of the Week
         </h1>
 
         {/* 🎞️ Aktuell Movie of the Week */}
@@ -132,7 +132,7 @@ export default function AdminFeatured() {
               alt={currentMovie.title}
               className="w-full h-72 object-cover"
             />
-            <div className="p-4 bg-slate-900">
+            <div className="p-4 bg-black">
               <h2 className="text-2xl font-semibold text-yellow-400">
                 Current Movie of the Week:
               </h2>
@@ -156,7 +156,7 @@ export default function AdminFeatured() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search for a movie..."
-            className="flex-grow p-3 rounded-lg bg-slate-900 border border-yellow-500 text-white placeholder-gray-400 focus:outline-none"
+            className="flex-grow p-3 rounded-lg bg-black border border-yellow-500 text-white placeholder-gray-400 focus:outline-none"
           />
           <button
             type="submit"
@@ -187,7 +187,7 @@ export default function AdminFeatured() {
                 alt={m.title}
                 className="w-full h-72 object-cover"
               />
-              <div className="p-3 bg-slate-900">
+              <div className="p-3 bg-black">
                 <h3 className="text-lg font-semibold">{m.title}</h3>
                 <p className="text-sm text-gray-400 line-clamp-2">
                   {m.overview}
