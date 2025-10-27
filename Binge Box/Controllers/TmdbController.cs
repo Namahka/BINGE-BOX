@@ -232,47 +232,64 @@ namespace BingeBox.Controllers
         // 🧭 BROWSE — år, årtionde, genre, rating, upcoming
         [HttpGet("browse")]
         public async Task<IActionResult> BrowseMovies(
-            [FromQuery] string? year = null,
-            [FromQuery] string? genre = null,
-            [FromQuery] double? minRating = null,
-            [FromQuery] int page = 1)
+      [FromQuery] string? decade = null,
+      [FromQuery] string? genre = null,
+      [FromQuery] string? ratingSort = null,   // "High to Low" eller "Low to High"
+      [FromQuery] int page = 1)
         {
-            var baseUrl = "https://api.themoviedb.org/3/discover/movie";
             var apiKey = "ce1d432c64f5d84d0cc30b70d6f30600";
-            var url = $"{baseUrl}?api_key={apiKey}&language=en-US&page={page}&sort_by=popularity.desc";
+            var baseUrl = "https://api.themoviedb.org/3/discover/movie";
 
-            // 🎬 Hantera år / årtionde / upcoming
-            if (!string.IsNullOrEmpty(year))
+            // --- 🧩 Basparametrar ---
+            var sb = new System.Text.StringBuilder(
+                $"{baseUrl}?api_key={apiKey}&language=en-US&region=US&include_adult=false&page={page}");
+
+            // --- 🗓️ Årtionde ---
+            // Endast decennier tillåts, t.ex. "1980s", "1990s", "2000s", "2010s", "2020s"
+            if (!string.IsNullOrEmpty(decade))
             {
-                if (year.EndsWith("s"))
+                decade = decade.Trim().ToLower();
+                if (decade.EndsWith("s"))
                 {
-                    var decade = int.Parse(year[..4]);
-                    url += $"&primary_release_date.gte={decade}-01-01&primary_release_date.lte={decade + 9}-12-31";
-                }
-                else if (year.Equals("upcoming", StringComparison.OrdinalIgnoreCase))
-                {
-                    var today = DateTime.UtcNow.ToString("yyyy-MM-dd");
-                    url += $"&primary_release_date.gte={today}";
-                }
-                else if (int.TryParse(year, out int singleYear))
-                {
-                    url += $"&primary_release_year={singleYear}";
+                    var decadeStr = decade.Substring(0, 4); // "1980" ur "1980s"
+                    if (int.TryParse(decadeStr, out int d))
+                    {
+                        var start = $"{d}-01-01";
+                        var end = $"{d + 9}-12-31";
+                        sb.Append($"&primary_release_date.gte={start}&primary_release_date.lte={end}");
+                    }
                 }
             }
 
-            // 🎭 Genre
+            // --- 🎭 Genre ---
             if (!string.IsNullOrEmpty(genre))
             {
                 var match = GenreMap.FirstOrDefault(g => g.Value.Equals(genre, StringComparison.OrdinalIgnoreCase));
                 if (match.Key != 0)
-                    url += $"&with_genres={match.Key}";
+                    sb.Append($"&with_genres={match.Key}");
             }
 
-            // ⭐ Min rating
-            if (minRating.HasValue)
-                url += $"&vote_average.gte={minRating.Value}";
+            // --- ⭐ Sortering ---
+            // TMDb stöder inte global sortering på rating för alla filmer direkt,
+            // men vi kan använda "vote_average.desc" för att få globalt högst betyg.
+            if (!string.IsNullOrEmpty(ratingSort))
+            {
+                if (ratingSort.Equals("High to Low", StringComparison.OrdinalIgnoreCase))
+                    sb.Append("&sort_by=vote_average.desc&vote_count.gte=100"); // filtrera bort skräp med 1 röst
+                else if (ratingSort.Equals("Low to High", StringComparison.OrdinalIgnoreCase))
+                    sb.Append("&sort_by=vote_average.asc&vote_count.gte=100");
+                else
+                    sb.Append("&sort_by=popularity.desc");
+            }
+            else
+            {
+                sb.Append("&sort_by=popularity.desc");
+            }
 
-            // 🔹 Hämta data
+            var url = sb.ToString();
+            Console.WriteLine($"📡 TMDB QUERY: {url}");
+
+            // --- 🔗 Anrop till TMDb ---
             using var client = new HttpClient();
             var response = await client.GetAsync(url);
             if (!response.IsSuccessStatusCode)
@@ -280,36 +297,53 @@ namespace BingeBox.Controllers
 
             var json = await response.Content.ReadAsStringAsync();
             var doc = JsonDocument.Parse(json);
-            var results = doc.RootElement.GetProperty("results");
+
+            if (!doc.RootElement.TryGetProperty("results", out var results))
+                return Ok(new { movies = new List<object>(), totalPages = 1, currentPage = page });
 
             var movies = new List<object>();
+
             foreach (var m in results.EnumerateArray())
             {
+                if (!m.TryGetProperty("id", out var idProp)) continue;
+
+                string? title = m.TryGetProperty("title", out var t) ? t.GetString() : null;
+                if (string.IsNullOrEmpty(title)) continue;
+
+                string? poster = m.TryGetProperty("poster_path", out var p) && p.ValueKind != JsonValueKind.Null
+                    ? $"https://image.tmdb.org/t/p/w500{p.GetString()}"
+                    : null;
+
+                string? releaseDate = m.TryGetProperty("release_date", out var d) ? d.GetString() : null;
+                double rating = m.TryGetProperty("vote_average", out var r) ? r.GetDouble() : 0;
+
                 movies.Add(new
                 {
-                    id = m.GetProperty("id").GetInt32(),
-                    title = m.TryGetProperty("title", out var t) ? t.GetString() : null,
-                    overview = m.TryGetProperty("overview", out var o) ? o.GetString() : null,
-                    rating = m.TryGetProperty("vote_average", out var r) ? r.GetDouble() : 0,
-                    releaseDate = m.TryGetProperty("release_date", out var d) ? d.GetString() : null,
-                    posterUrl = m.TryGetProperty("poster_path", out var p) && p.ValueKind != JsonValueKind.Null
-                        ? $"https://image.tmdb.org/t/p/w500{p.GetString()}"
-                        : null,
+                    id = idProp.GetInt32(),
+                    title,
+                    overview = m.TryGetProperty("overview", out var o) ? o.GetString() ?? "" : "",
+                    rating,
+                    releaseDate = releaseDate ?? "Unknown",
+                    posterUrl = poster,
                     genre = m.TryGetProperty("genre_ids", out var g) && g.ValueKind == JsonValueKind.Array
                         ? string.Join(", ", g.EnumerateArray().Select(id =>
-                            GenreMap.ContainsKey(id.GetInt32()) ? GenreMap[id.GetInt32()] : "Okänd"))
-                        : "Okänd genre"
+                            GenreMap.ContainsKey(id.GetInt32()) ? GenreMap[id.GetInt32()] : "Unknown"))
+                        : "Unknown"
                 });
             }
 
             var totalPages = doc.RootElement.TryGetProperty("total_pages", out var tp) ? tp.GetInt32() : 1;
 
+            // --- 🔥 Returnera korrekt ---
             return Ok(new
             {
                 currentPage = page,
                 totalPages,
-                movies
+                movies = movies.OrderByDescending(m => ratingSort == "Low to High" ? 0 : ((dynamic)m).rating)
             });
         }
+
+
+
     }
 }

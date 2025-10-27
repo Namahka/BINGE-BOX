@@ -32,22 +32,25 @@ import AdminPanel from "./pages/AdminPanel";
 import AdminFeatured from "./pages/AdminFeatured";
 import ReviewPage from "./pages/ReviewPage";
 import EditReview from "./pages/EditReview";
+import BrowseFilters from "./components/BrowseFilters";
 
 // ===============================
 // 🟡 HEADER
 // ===============================
-function Header({ onSearch, onClearSearch, searchRef }) {
+function Header({ onSearch, onClearSearch, searchRef, onFilter, clearFilters }) {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const filterRef = useRef(null);
 
   const handleLogoClick = () => {
     onClearSearch();
+    if (filterRef.current) filterRef.current.resetFilters();
     navigate("/");
     window.scrollTo(0, 0);
   };
 
   return (
-    <header className="bg-black text-white py-6 border-b border-yellow-400 relative">
+    <header className="bg-black text-white pt-6 border-b border-yellow-400 relative">
       <div className="flex items-center justify-center relative">
         <h1
           className="text-5xl font-bold text-yellow-400 cursor-pointer hover:text-yellow-300 transition"
@@ -66,23 +69,43 @@ function Header({ onSearch, onClearSearch, searchRef }) {
         </div>
       </div>
 
-      <div className="max-w-xl mx-auto mt-4">
-        <SearchBar
-          ref={searchRef}
-          onSearch={onSearch}
-          onClearSearch={onClearSearch}
-        />
+      <div className="max-w-xl mx-auto mt-3 mb-2">
+        <SearchBar ref={searchRef} onSearch={onSearch} onClearSearch={onClearSearch} />
+      </div>
+
+      <div className="flex justify-center items-center gap-2 text-sm text-yellow-300 mb-3">
+        <span className="uppercase tracking-wider text-white text-xs mr-1">
+          Browse by
+        </span>
+
+        <BrowseFilters ref={filterRef} onFilter={onFilter} />
+
+        <button
+          onClick={() => {
+            if (filterRef.current) filterRef.current.resetFilters();
+            clearFilters();
+          }}
+          className="ml-2 px-3 py-1 text-xs border border-yellow-400 text-yellow-400 rounded-md hover:bg-yellow-400 hover:text-black transition"
+        >
+          Clear
+        </button>
       </div>
     </header>
   );
 }
 
+
 // ===============================
 // 🧩 HUVUDSIDA (HomePage)
 // ===============================
-function HomePage({ movies, mode, query, category, onBack, loading }) {
+// eslint-disable-next-line no-unused-vars
+function HomePage({ movies, setMovies, mode, query, category, onBack, loading, clearFilters, isFiltering }) {
+
+
   const navigate = useNavigate();
   const [movieOfTheWeek, setMovieOfTheWeek] = useState(null);
+
+
 
   // 🎬 Hämta Movie of the Week
   useEffect(() => {
@@ -147,9 +170,11 @@ function HomePage({ movies, mode, query, category, onBack, loading }) {
         </>
       )}
 
+
+
       {/* 🎞️ Movie of the Week */}
-      {mode === "popular" && movieOfTheWeek && (
-        <section
+{mode === "popular" && !isFiltering && movieOfTheWeek && (
+  <section
           className="relative h-[500px] w-full overflow-hidden mb-10 rounded-xl cursor-pointer group"
           onClick={() => navigate(`/movie/${movieOfTheWeek.movieId}`)}
         >
@@ -266,6 +291,7 @@ function ProtectedAdminRoute({ children }) {
   return children;
 }
 
+
 // ===============================
 // 🚀 APP-INNEHÅLL
 // ===============================
@@ -276,11 +302,13 @@ function AppContent() {
   const [category, setCategory] = useState("all");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [isFiltering, setIsFiltering] = useState(false); // ✅ global state
 
   const navigate = useNavigate();
   const location = useLocation();
   const searchRef = useRef(null);
 
+  // 🧭 Rensa sök vid bakåtnavigering
   useEffect(() => {
     const handlePopState = () => {
       if (searchRef.current) searchRef.current.clearInput();
@@ -289,6 +317,7 @@ function AppContent() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
+  // 🎬 Ladda populära filmer vid start
   useEffect(() => {
     async function loadPopular() {
       try {
@@ -296,14 +325,12 @@ function AppContent() {
         setError(null);
         const data = await getPopularMovies();
 
-        // 🚫 Filtrera bort TV även från API
         const onlyMovies = Array.isArray(data)
           ? data.filter(
               (m) =>
                 m.mediaType !== "tv" &&
                 m.media_type !== "tv" &&
-                m.type !== "tv" &&
-                m.Type !== "tv"
+                m.type !== "tv"
             )
           : [];
 
@@ -322,9 +349,9 @@ function AppContent() {
     }
   }, [location.pathname]);
 
+  // 🔍 Sökfunktion
   const handleSearch = async (q, cat) => {
-    console.log("🔍 handleSearch TRIGGAD", q, cat);
-    if (!q || !q.trim()) return;
+    if (!q?.trim()) return;
 
     setLoading(true);
     setError(null);
@@ -332,23 +359,16 @@ function AppContent() {
     try {
       let data = [];
 
-      if (cat === "members") {
-        data = await searchUsers(q);
-      } else {
-        data = await searchMovies(q, "movie"); // 🔥 tvinga bara film
-      }
+      if (cat === "members") data = await searchUsers(q);
+      else data = await searchMovies(q, "movie");
 
-      // 🚫 Filtrera bort tv
-      data = Array.isArray(data)
-        ? data.filter(
-            (m) =>
-              m.mediaType !== "tv" &&
-              m.media_type !== "tv" &&
-              m.type !== "tv" &&
-              m.Type !== "tv" &&
-              !m.first_air_date
-          )
-        : [];
+      data = data.filter(
+        (m) =>
+          m.mediaType !== "tv" &&
+          m.media_type !== "tv" &&
+          m.type !== "tv" &&
+          !m.first_air_date
+      );
 
       setMovies(data);
       setQuery(q);
@@ -365,10 +385,12 @@ function AppContent() {
     }
   };
 
+  // 🧹 Rensa sök & filter
   const clearSearch = async () => {
     setQuery("");
     setCategory("all");
     setMode("popular");
+    setIsFiltering(false); // ✅ visa Movie of the Week igen
 
     if (searchRef.current) searchRef.current.clearInput();
 
@@ -381,8 +403,7 @@ function AppContent() {
             (m) =>
               m.mediaType !== "tv" &&
               m.media_type !== "tv" &&
-              m.type !== "tv" &&
-              m.Type !== "tv"
+              m.type !== "tv"
           )
         : [];
 
@@ -395,13 +416,39 @@ function AppContent() {
     }
   };
 
+  // 🎚️ Filtrering
+  const handleFilter = async (filters) => {
+  try {
+    setIsFiltering(true);
+
+    const params = new URLSearchParams();
+
+    if (filters.decade && filters.decade !== "all") params.append("decade", filters.decade);
+    if (filters.genre && filters.genre !== "all") params.append("genre", filters.genre);
+    if (filters.ratingSort && filters.ratingSort !== "none")
+      params.append("ratingSort", filters.ratingSort);
+
+    const res = await fetch(`http://localhost:7299/api/tmdb/browse?${params}`);
+    const json = await res.json();
+
+    let movies = json.movies || json;
+    setMovies(movies);
+  } catch (err) {
+    console.error("⚠️ Filtreringsfel:", err);
+  }
+};
+
+
+  // 🧩 Render
   return (
     <>
-      <Header
-        onSearch={handleSearch}
-        onClearSearch={clearSearch}
-        searchRef={searchRef}
-      />
+  <Header
+  onSearch={handleSearch}
+  onClearSearch={clearSearch}
+  searchRef={searchRef}
+  onFilter={handleFilter}
+  clearFilters={clearSearch}
+/>
 
       {error && <p className="text-center text-red-500 mt-10">{error}</p>}
 
@@ -411,26 +458,35 @@ function AppContent() {
           element={
             <HomePage
               movies={movies}
+              setMovies={setMovies}
               mode={mode}
               query={query}
               category={category}
               onBack={clearSearch}
               loading={loading}
+              clearFilters={clearSearch}
+               isFiltering={isFiltering}
             />
           }
         />
+
+        {/* 🔹 Detaljsidor */}
         <Route path="/person/:id" element={<PersonDetails />} />
         <Route path="/movie/:id" element={<MovieDetails />} />
 
+        {/* 🔹 Användarsidor */}
         <Route path="/login" element={<Login />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/register" element={<Register />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/user/:id" element={<UserProfile />} />
         <Route path="/movie/:id/review" element={<ReviewPage />} />
-<Route path="/movie/:id/review/edit/:reviewId" element={<EditReview />} />
+        <Route
+          path="/movie/:id/review/edit/:reviewId"
+          element={<EditReview />}
+        />
 
-
+        {/* 🔹 Admin-sidor (skyddade) */}
         <Route
           path="/admin"
           element={
@@ -439,7 +495,6 @@ function AppContent() {
             </ProtectedAdminRoute>
           }
         />
-
         <Route
           path="/admin/featured"
           element={
