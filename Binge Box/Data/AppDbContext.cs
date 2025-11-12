@@ -18,6 +18,8 @@ namespace BingeBox.Data
         public DbSet<Review> Reviews { get; set; }
         public DbSet<Comment> Comments { get; set; }
         public DbSet<ReviewLike> ReviewLikes { get; set; }
+        public DbSet<Category> Categories { get; set; }
+
 
 
         // ⚙️ Relationsinställningar

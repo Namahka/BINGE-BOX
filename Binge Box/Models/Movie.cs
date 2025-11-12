@@ -28,5 +28,8 @@ namespace BingeBox.Models
         public string? PosterUrl { get; set; } // länk till filmens bild
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public int? CategoryId { get; set; }
+        public Category? Category { get; set; }
+
     }
 }
