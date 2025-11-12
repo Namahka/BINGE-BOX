@@ -1,6 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using BingeBox.External.Tmdb;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
-using BingeBox.External.Tmdb;
 
 namespace BingeBox.Controllers
 {
@@ -344,6 +345,49 @@ namespace BingeBox.Controllers
         }
 
 
+        // ======================================================
+        // 🟣 GET: /api/tmdb/slug/{slug}
+        // Hämta film via slug direkt från TMDb (ex: "the-dark-knight")
+        // ======================================================
+        [HttpGet("slug/{slug}")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetBySlug(string slug)
+        {
+            try
+            {
+                // 🧠 Gör om slug till vanlig söktext ("the-dark-knight" -> "The Dark Knight")
+                var query = System.Globalization.CultureInfo.CurrentCulture.TextInfo
+                    .ToTitleCase(slug.Replace("-", " "));
 
+                // 🔍 Anropa TMDb SearchMoviesAsync
+                var searchResults = await _tmdb.SearchMoviesAsync(query);
+
+                if (searchResults == null || searchResults.results == null || searchResults.results.Count == 0)
+                    return NotFound(new { message = $"Ingen film hittades för slug '{slug}'." });
+
+                var first = searchResults.results.First();
+
+                return Ok(new
+                {
+                    id = first.id,
+                    title = first.title ?? "Okänd titel",
+                    overview = first.overview ?? "Ingen beskrivning tillgänglig.",
+                    rating = first.vote_average,
+                    releaseDate = first.release_date ?? "Okänt datum",
+                    posterUrl = first.poster_path != null
+                        ? $"https://image.tmdb.org/t/p/w500{first.poster_path}"
+                        : null,
+                    genre = first.genre_ids != null && first.genre_ids.Count > 0
+                        ? string.Join(", ", first.genre_ids.Select(id =>
+                            GenreMap.ContainsKey(id) ? GenreMap[id] : "Okänd"))
+                        : "Okänd genre"
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ [GetBySlug] Fel: {ex.Message}");
+                return StatusCode(500, new { message = "Ett internt fel uppstod.", error = ex.Message });
+            }
+        }
     }
 }

@@ -23,8 +23,6 @@ namespace BingeBox.External.Tmdb
         public string? profile_path { get; set; }
         public List<int>? genre_ids { get; set; }
         public string? known_for_department { get; set; }
-
-        // 🟢 LÄGG TILL DEN HÄR RADEN — FIXAR DINA FEL:
         public string? media_type { get; set; }
 
         public List<TmdbKnownFor>? known_for { get; set; }
