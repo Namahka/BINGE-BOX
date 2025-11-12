@@ -18,23 +18,24 @@ namespace BingeBox.Controllers
 
         // ======================================================
         // 🟢 GET: /api/categories
-        // Hämta alla kategorier + deras filmer
+        // Hämta alla kategorier (kan filtrera via slug)
         // ======================================================
         [HttpGet]
         public async Task<IActionResult> GetAllCategories([FromQuery] string? slug = null)
         {
+            var query = _context.Categories.AsQueryable();
+
             if (!string.IsNullOrEmpty(slug))
-            {
-                var categoryBySlug = await _context.Categories
-                    .Include(c => c.Movies)
-                    .Where(c => c.Slug == slug)
-                    .ToListAsync();
+                query = query.Where(c => c.Slug == slug);
 
-                return Ok(categoryBySlug);
-            }
-
-            var categories = await _context.Categories
-                .Include(c => c.Movies)
+            var categories = await query
+                .Select(c => new CategoryDto
+                {
+                    Id = c.Id,
+                    Name = c.Name,
+                    Slug = c.Slug,
+                    Image = c.Image
+                })
                 .ToListAsync();
 
             return Ok(categories);
@@ -48,8 +49,15 @@ namespace BingeBox.Controllers
         public async Task<IActionResult> GetCategoryById(int id)
         {
             var category = await _context.Categories
-                .Include(c => c.Movies)
-                .FirstOrDefaultAsync(c => c.Id == id);
+                .Where(c => c.Id == id)
+                .Select(c => new CategoryDto
+                {
+                    Id = c.Id,
+                    Name = c.Name,
+                    Slug = c.Slug,
+                    Image = c.Image
+                })
+                .FirstOrDefaultAsync();
 
             if (category == null)
                 return NotFound();
@@ -63,17 +71,30 @@ namespace BingeBox.Controllers
         // ======================================================
         [HttpPost]
         [Authorize]
-        public async Task<IActionResult> CreateCategory([FromBody] Category category)
+        public async Task<IActionResult> CreateCategory([FromBody] CategoryCreateDto dto)
         {
-            if (string.IsNullOrWhiteSpace(category.Name))
+            if (string.IsNullOrWhiteSpace(dto.Name))
                 return BadRequest("Name is required.");
 
-            category.Slug = GenerateSlug(category.Name);
+            var category = new Category
+            {
+                Name = dto.Name,
+                Image = dto.Image,
+                Slug = GenerateSlug(dto.Name)
+            };
 
             _context.Categories.Add(category);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetCategoryById), new { id = category.Id }, category);
+            var readDto = new CategoryDto
+            {
+                Id = category.Id,
+                Name = category.Name,
+                Slug = category.Slug,
+                Image = category.Image
+            };
+
+            return CreatedAtAction(nameof(GetCategoryById), new { id = category.Id }, readDto);
         }
 
         // ======================================================
@@ -82,20 +103,20 @@ namespace BingeBox.Controllers
         // ======================================================
         [HttpPatch("{id:int}")]
         [Authorize]
-        public async Task<IActionResult> UpdateCategory(int id, [FromBody] Category updated)
+        public async Task<IActionResult> UpdateCategory(int id, [FromBody] CategoryUpdateDto dto)
         {
             var category = await _context.Categories.FindAsync(id);
             if (category == null)
                 return NotFound();
 
-            if (!string.IsNullOrWhiteSpace(updated.Name))
+            if (!string.IsNullOrWhiteSpace(dto.Name))
             {
-                category.Name = updated.Name;
-                category.Slug = GenerateSlug(updated.Name);
+                category.Name = dto.Name;
+                category.Slug = GenerateSlug(dto.Name);
             }
 
-            if (!string.IsNullOrWhiteSpace(updated.Image))
-                category.Image = updated.Image;
+            if (!string.IsNullOrWhiteSpace(dto.Image))
+                category.Image = dto.Image;
 
             await _context.SaveChangesAsync();
             return NoContent();
