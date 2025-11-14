@@ -22,9 +22,7 @@ namespace BingeBox.Controllers
             _env = env;
         }
 
-        // ==========================
-        // GET: /api/user/profile
-        // ==========================
+
         [HttpGet("profile")]
         public async Task<IActionResult> GetProfile()
         {
@@ -54,9 +52,7 @@ namespace BingeBox.Controllers
             return Ok(dto);
         }
 
-        // ==========================
-        // PUT: /api/user/update
-        // ==========================
+  
         [HttpPut("update")]
         [RequestSizeLimit(10_000_000)]
         public async Task<IActionResult> UpdateProfile([FromForm] UserUpdateDto dto)
@@ -96,9 +92,7 @@ namespace BingeBox.Controllers
                 updated = true;
             }
 
-            // ***************
-            // Profile-bild
-            // ***************
+        
             if (dto.ProfileImage != null && dto.ProfileImage.Length > 0)
             {
                 var uploadsDir = Path.Combine(_env.WebRootPath, "uploads");
@@ -134,9 +128,6 @@ namespace BingeBox.Controllers
             return Ok(response);
         }
 
-        // ==========================
-        // GET: /api/user/search?query=x
-        // ==========================
         [HttpGet("search")]
         public IActionResult SearchUsers([FromQuery] string query)
         {
@@ -146,7 +137,7 @@ namespace BingeBox.Controllers
             var users = _context.Users
                 .Include(u => u.Profile)
                 .Where(u => u.Username.Contains(query))
-                .AsEnumerable() // gör det LINQ-to-Objects → tillåter ?. operator
+                .AsEnumerable() 
                 .Select(u => new UserSearchDto
                 {
                     Id = u.Id,
@@ -158,9 +149,7 @@ namespace BingeBox.Controllers
             return Ok(users);
         }
 
-        // ==========================
-        // GET: /api/user/{id}
-        // ==========================
+
         [HttpGet("{id}")]
         public async Task<IActionResult> GetUserById(int id)
         {

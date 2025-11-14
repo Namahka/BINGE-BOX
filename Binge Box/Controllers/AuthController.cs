@@ -23,9 +23,7 @@ namespace BingeBox.Controllers
             _config = config;
         }
 
-        // ==========================
-        // REGISTER
-        // ==========================
+
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterDto dto)
         {
@@ -54,9 +52,7 @@ namespace BingeBox.Controllers
         }
 
 
-        // ==========================
-        // LOGIN
-        // ==========================
+      
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDto dto)
         {

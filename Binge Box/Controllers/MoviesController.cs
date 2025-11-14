@@ -18,9 +18,7 @@ namespace BingeBox.Controllers
             _context = context;
         }
 
-        // ======================================================
-        // 🟢 GET: /api/movies?page=1&pageSize=10&genre=Action&rating=desc&year=2020s&slug=the-batman
-        // ======================================================
+      
         [HttpGet]
         public async Task<IActionResult> GetMovies(
             [FromQuery] int page = 1,
@@ -101,9 +99,7 @@ namespace BingeBox.Controllers
             return Ok(movies);
         }
 
-        // ======================================================
-        // 🟣 GET: /api/movies/{id}
-        // ======================================================
+  
         [HttpGet("{id:int}")]
         public async Task<IActionResult> GetMovie(int id)
         {
@@ -127,9 +123,7 @@ namespace BingeBox.Controllers
             return Ok(movie);
         }
 
-        // ======================================================
-        // 🟡 POST: /api/movies (kräver inloggning)
-        // ======================================================
+ 
         [HttpPost]
         [Authorize]
         public async Task<IActionResult> PostMovie([FromBody] MovieCreateDto dto)
@@ -167,9 +161,7 @@ namespace BingeBox.Controllers
             return CreatedAtAction(nameof(GetMovie), new { id = movie.Id }, response);
         }
 
-        // ======================================================
-        // ✏️ PATCH: /api/movies/{id} (kräver inloggning)
-        // ======================================================
+
         [HttpPatch("{id:int}")]
         [Authorize]
         public async Task<IActionResult> PatchMovie(int id, [FromBody] MovieUpdateDto dto)
@@ -200,9 +192,7 @@ namespace BingeBox.Controllers
             return NoContent();
         }
 
-        // ======================================================
-        // ❌ DELETE: /api/movies/{id} (kräver inloggning)
-        // ======================================================
+  
         [HttpDelete("{id:int}")]
         [Authorize]
         public async Task<IActionResult> DeleteMovie(int id)
@@ -217,9 +207,6 @@ namespace BingeBox.Controllers
             return NoContent();
         }
 
-        // ======================================================
-        // 🧩 Hjälpmetod för att skapa slug
-        // ======================================================
         private static string GenerateSlug(string title)
         {
             return new string(title

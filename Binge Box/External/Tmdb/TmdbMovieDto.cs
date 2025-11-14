@@ -1,4 +1,4 @@
-﻿namespace BingeBox.Models
+﻿namespace BingeBox.External.Tmdb
 {
     public class TmdbMovieDto
     {
