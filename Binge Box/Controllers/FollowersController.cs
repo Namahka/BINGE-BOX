@@ -1,9 +1,10 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using BingeBox.Data;
 using BingeBox.Models;
-using System.Security.Claims;
+using BingeBox.DTOs.Followers;
 
 namespace BingeBox.Controllers
 {
@@ -19,59 +20,58 @@ namespace BingeBox.Controllers
             _context = context;
         }
 
-        // ============================
-        // GET: api/followers/followers/{userId}
-        // ============================
         [HttpGet("followers/{userId}")]
         public async Task<IActionResult> GetFollowers(int userId)
         {
             var followers = await _context.Follows
                 .Where(f => f.FollowedId == userId)
                 .Include(f => f.FollowerUser)
-                .Select(f => new
+                .ThenInclude(u => u.Profile)
+                .Select(f => new FollowerDto
                 {
                     Id = f.FollowerUser.Id,
                     Username = f.FollowerUser.Username,
-                    ProfileImageUrl = f.FollowerUser.ProfileImageUrl ?? ""
+                    ProfileImageUrl = f.FollowerUser.Profile != null
+                        ? f.FollowerUser.Profile.ProfileImageUrl
+                        : "",
+                    FollowedAt = f.CreatedAt
                 })
                 .ToListAsync();
 
             return Ok(followers);
         }
 
-        // ============================
-        // GET: api/followers/following/{userId}
-        // ============================
         [HttpGet("following/{userId}")]
         public async Task<IActionResult> GetFollowing(int userId)
         {
             var following = await _context.Follows
                 .Where(f => f.FollowerId == userId)
                 .Include(f => f.FollowedUser)
-                .Select(f => new
+                .ThenInclude(u => u.Profile)
+                .Select(f => new FollowerDto
                 {
                     Id = f.FollowedUser.Id,
                     Username = f.FollowedUser.Username,
-                    ProfileImageUrl = f.FollowedUser.ProfileImageUrl ?? ""
+                    ProfileImageUrl = f.FollowedUser.Profile != null
+                        ? f.FollowedUser.Profile.ProfileImageUrl
+                        : "",
+                    FollowedAt = f.CreatedAt
                 })
                 .ToListAsync();
 
             return Ok(following);
         }
 
-        // ============================
-        // POST: api/followers/toggle/{targetId}
-        // ============================
-        [HttpPost("toggle/{targetId}")]
-        public async Task<IActionResult> ToggleFollow(int targetId)
+        [HttpPost("toggle")]
+        public async Task<IActionResult> ToggleFollow([FromBody] FollowToggleDto dto)
         {
             var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-            if (userId == targetId)
+            if (userId == dto.TargetId)
                 return BadRequest("You cannot follow yourself.");
 
             var existing = await _context.Follows
-                .FirstOrDefaultAsync(f => f.FollowerId == userId && f.FollowedId == targetId);
+                .FirstOrDefaultAsync(f => f.FollowerId == userId && f.FollowedId == dto.TargetId);
 
             if (existing != null)
             {
@@ -79,32 +79,18 @@ namespace BingeBox.Controllers
                 await _context.SaveChangesAsync();
                 return Ok(new { following = false });
             }
-            else
+
+            var newFollow = new Follower
             {
-                var newFollow = new Follower
-                {
-                    FollowerId = userId,
-                    FollowedId = targetId,
-                    CreatedAt = DateTime.UtcNow
-                };
-                _context.Follows.Add(newFollow);
-                await _context.SaveChangesAsync();
-                return Ok(new { following = true });
-            }
-        }
+                FollowerId = userId,
+                FollowedId = dto.TargetId,
+                CreatedAt = DateTime.UtcNow
+            };
 
-        // ============================
-        // GET: api/followers/isFollowing/{targetUserId}
-        // ============================
-        [HttpGet("isFollowing/{targetUserId}")]
-        public async Task<IActionResult> IsFollowing(int targetUserId)
-        {
-            var currentUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            _context.Follows.Add(newFollow);
+            await _context.SaveChangesAsync();
 
-            var isFollowing = await _context.Follows
-                .AnyAsync(f => f.FollowerId == currentUserId && f.FollowedId == targetUserId);
-
-            return Ok(isFollowing);
+            return Ok(new { following = true });
         }
     }
 }

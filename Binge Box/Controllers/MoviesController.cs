@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using BingeBox.Data;
 using BingeBox.Models;
+using BingeBox.DTOs.Movies;
 
 namespace BingeBox.Controllers
 {
@@ -29,26 +30,31 @@ namespace BingeBox.Controllers
             [FromQuery] string? rating = null,
             [FromQuery] string? year = null)
         {
-            // 🎯 Hämta specifik film via slug
             if (!string.IsNullOrEmpty(slug))
             {
                 var movieBySlug = await _context.Movies
                     .Where(m => m.Slug == slug)
+                    .Select(m => new MovieDto
+                    {
+                        Id = m.Id,
+                        Title = m.Title,
+                        Description = m.Description,
+                        Rating = m.Rating,
+                        Genre = m.Genre,
+                        ReleaseDate = m.ReleaseDate,
+                        PosterUrl = m.PosterUrl,
+                        Slug = m.Slug
+                    })
                     .ToListAsync();
 
                 return Ok(movieBySlug);
             }
 
-            // 🔍 Starta query
             var query = _context.Movies.AsQueryable();
 
-            // 🔹 Filtrera på genre (ex: ?genre=Horror)
             if (!string.IsNullOrEmpty(genre))
-            {
                 query = query.Where(m => m.Genre.Contains(genre));
-            }
 
-            // 🔹 Filtrera på årtionde (ex: ?year=2020s)
             if (!string.IsNullOrEmpty(year))
             {
                 if (year.EndsWith("s") && int.TryParse(year[..4], out int decadeStart))
@@ -62,7 +68,6 @@ namespace BingeBox.Controllers
                 }
             }
 
-            // 🔹 Sortering efter rating (ex: ?rating=desc eller ?rating=asc)
             if (!string.IsNullOrEmpty(rating))
             {
                 query = rating.ToLower() switch
@@ -77,10 +82,20 @@ namespace BingeBox.Controllers
                 query = query.OrderByDescending(m => m.Id);
             }
 
-            // 🔹 Paginering
             var movies = await query
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
+                .Select(m => new MovieDto
+                {
+                    Id = m.Id,
+                    Title = m.Title,
+                    Description = m.Description,
+                    Rating = m.Rating,
+                    Genre = m.Genre,
+                    ReleaseDate = m.ReleaseDate,
+                    PosterUrl = m.PosterUrl,
+                    Slug = m.Slug
+                })
                 .ToListAsync();
 
             return Ok(movies);
@@ -92,21 +107,19 @@ namespace BingeBox.Controllers
         [HttpGet("{id:int}")]
         public async Task<IActionResult> GetMovie(int id)
         {
-            var movie = await _context.Movies.FindAsync(id);
-            if (movie == null)
-                return NotFound();
-
-            return Ok(movie);
-        }
-
-        // ======================================================
-        // 🟣 GET: /api/movies/slug/{slug}
-        // ======================================================
-        [HttpGet("slug/{slug}")]
-        public async Task<IActionResult> GetMovieBySlug(string slug)
-        {
             var movie = await _context.Movies
-                .FirstOrDefaultAsync(m => m.Slug == slug);
+                .Select(m => new MovieDto
+                {
+                    Id = m.Id,
+                    Title = m.Title,
+                    Description = m.Description,
+                    Rating = m.Rating,
+                    Genre = m.Genre,
+                    ReleaseDate = m.ReleaseDate,
+                    PosterUrl = m.PosterUrl,
+                    Slug = m.Slug
+                })
+                .FirstOrDefaultAsync(m => m.Id == id);
 
             if (movie == null)
                 return NotFound();
@@ -115,60 +128,80 @@ namespace BingeBox.Controllers
         }
 
         // ======================================================
-        // 🟡 POST: /api/movies  (kräver inloggning)
+        // 🟡 POST: /api/movies (kräver inloggning)
         // ======================================================
         [HttpPost]
         [Authorize]
-        public async Task<IActionResult> PostMovie([FromBody] Movie movie)
+        public async Task<IActionResult> PostMovie([FromBody] MovieCreateDto dto)
         {
-            if (string.IsNullOrWhiteSpace(movie.Title))
-                return BadRequest("Title is required.");
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
 
-            // 🧠 Skapa slug automatiskt baserat på titel
-            movie.Slug = GenerateSlug(movie.Title);
-            movie.CreatedAt = DateTime.UtcNow;
+            var movie = new Movie
+            {
+                Title = dto.Title,
+                Description = dto.Description,
+                Rating = dto.Rating ?? 0,
+                Genre = dto.Genre,
+                ReleaseDate = dto.ReleaseDate,
+                PosterUrl = dto.PosterUrl,
+                CreatedAt = DateTime.UtcNow,
+                Slug = GenerateSlug(dto.Title)
+            };
 
             _context.Movies.Add(movie);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetMovie), new { id = movie.Id }, movie);
+            var response = new MovieDto
+            {
+                Id = movie.Id,
+                Title = movie.Title,
+                Description = movie.Description,
+                Rating = movie.Rating,
+                Genre = movie.Genre,
+                ReleaseDate = movie.ReleaseDate,
+                PosterUrl = movie.PosterUrl,
+                Slug = movie.Slug
+            };
+
+            return CreatedAtAction(nameof(GetMovie), new { id = movie.Id }, response);
         }
 
         // ======================================================
-        // ✏️ PATCH: /api/movies/{id}  (kräver inloggning)
+        // ✏️ PATCH: /api/movies/{id} (kräver inloggning)
         // ======================================================
         [HttpPatch("{id:int}")]
         [Authorize]
-        public async Task<IActionResult> PatchMovie(int id, [FromBody] Movie updated)
+        public async Task<IActionResult> PatchMovie(int id, [FromBody] MovieUpdateDto dto)
         {
             var movie = await _context.Movies.FindAsync(id);
             if (movie == null)
                 return NotFound();
 
-            if (!string.IsNullOrWhiteSpace(updated.Title))
+            if (!string.IsNullOrWhiteSpace(dto.Title))
             {
-                movie.Title = updated.Title;
-                movie.Slug = GenerateSlug(updated.Title);
+                movie.Title = dto.Title;
+                movie.Slug = GenerateSlug(dto.Title);
             }
 
-            if (!string.IsNullOrWhiteSpace(updated.Description))
-                movie.Description = updated.Description;
+            if (!string.IsNullOrWhiteSpace(dto.Description))
+                movie.Description = dto.Description;
 
-            if (!string.IsNullOrWhiteSpace(updated.PosterUrl))
-                movie.PosterUrl = updated.PosterUrl;
+            if (!string.IsNullOrWhiteSpace(dto.PosterUrl))
+                movie.PosterUrl = dto.PosterUrl;
 
-            if (!string.IsNullOrWhiteSpace(updated.Genre))
-                movie.Genre = updated.Genre;
+            if (!string.IsNullOrWhiteSpace(dto.Genre))
+                movie.Genre = dto.Genre;
 
-            if (updated.Rating > 0)
-                movie.Rating = updated.Rating;
+            if (dto.Rating.HasValue && dto.Rating > 0)
+                movie.Rating = dto.Rating.Value;
 
             await _context.SaveChangesAsync();
             return NoContent();
         }
 
         // ======================================================
-        // ❌ DELETE: /api/movies/{id}  (kräver inloggning)
+        // ❌ DELETE: /api/movies/{id} (kräver inloggning)
         // ======================================================
         [HttpDelete("{id:int}")]
         [Authorize]

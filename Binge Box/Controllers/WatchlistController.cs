@@ -1,5 +1,4 @@
-﻿using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
@@ -7,12 +6,13 @@ using System.Text.Json;
 using BingeBox.Data;
 using BingeBox.Models;
 using BingeBox.External.Tmdb;
+using BingeBox.DTOs.Watchlist;
 
 namespace BingeBox.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize] // Kräver inloggning (JWT)
+    [Authorize]
     public class WatchlistController : ControllerBase
     {
         private readonly AppDbContext _context;
@@ -24,7 +24,6 @@ namespace BingeBox.Controllers
             _tmdb = tmdb;
         }
 
-        // 🧠 Hämta userId från JWT-token
         private int GetUserId()
         {
             var claim = User.FindFirst("nameid")?.Value
@@ -36,10 +35,6 @@ namespace BingeBox.Controllers
             return int.Parse(claim);
         }
 
-        // --------------------------------------------------------
-        // 🟩 GET /api/watchlist
-        // Hämtar alla poster för inloggad användare
-        // --------------------------------------------------------
         [HttpGet]
         public async Task<IActionResult> GetUserWatchlist()
         {
@@ -48,71 +43,57 @@ namespace BingeBox.Controllers
             var items = await _context.WatchlistItems
                 .Where(w => w.UserId == userId)
                 .OrderByDescending(w => w.AddedAt)
+                .Select(w => new WatchlistItemDto
+                {
+                    Id = w.Id,
+                    UserId = w.UserId,
+                    MovieId = w.MovieId,
+                    Title = w.Title,
+                    PosterUrl = w.PosterUrl,
+                    Type = w.Type,
+                    Status = w.Status,
+                    AddedAt = w.AddedAt
+                })
                 .ToListAsync();
 
             return Ok(items);
         }
 
-        // --------------------------------------------------------
-        // 🟦 POST /api/watchlist/add
-        // Lägg till ny film i watchlist + hämta info från TMDb
-        // --------------------------------------------------------
         [HttpPost("add")]
-        public async Task<IActionResult> AddToWatchlist([FromBody] WatchlistItem item)
+        public async Task<IActionResult> AddToWatchlist([FromBody] WatchlistCreateDto dto)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
             var userId = GetUserId();
 
-            var existing = await _context.WatchlistItems
-                .FirstOrDefaultAsync(w => w.UserId == userId && w.MovieId == item.MovieId);
+            var exists = await _context.WatchlistItems
+                .FirstOrDefaultAsync(w => w.UserId == userId && w.MovieId == dto.MovieId);
 
-            if (existing != null)
+            if (exists != null)
                 return BadRequest("Item already exists in your watchlist.");
 
-            item.UserId = userId;
-            item.AddedAt = DateTime.UtcNow;
+            var item = new WatchlistItem
+            {
+                UserId = userId,
+                MovieId = dto.MovieId,
+                Title = dto.Title ?? "Untitled",
+                PosterUrl = dto.PosterUrl,
+                Type = dto.Type,
+                Status = dto.Status,
+                AddedAt = DateTime.UtcNow
+            };
 
             try
             {
-                JsonDocument? tmdbData = await _tmdb.GetMovieDetailsAsync(item.MovieId);
+                JsonDocument? tmdbData = await _tmdb.GetMovieDetailsAsync(dto.MovieId);
                 if (tmdbData != null)
                 {
                     var root = tmdbData.RootElement;
-                    var title = root.GetProperty("title").GetString() ?? "Untitled";
-                    var overview = root.GetProperty("overview").GetString() ?? "No description available.";
-                    var rating = root.TryGetProperty("vote_average", out var r) ? r.GetDouble() : 0;
-                    var poster = root.TryGetProperty("poster_path", out var p)
+                    item.Title = root.GetProperty("title").GetString() ?? item.Title;
+                    item.PosterUrl = root.TryGetProperty("poster_path", out var p)
                         ? $"https://image.tmdb.org/t/p/w500{p.GetString()}"
-                        : null;
-
-                    var genres = root.TryGetProperty("genres", out var gArray)
-                        ? string.Join(", ", gArray.EnumerateArray().Select(g => g.GetProperty("name").GetString()))
-                        : "Unknown";
-
-                    var existingMovie = await _context.Movies.FirstOrDefaultAsync(m => m.Id == item.MovieId);
-                    if (existingMovie == null)
-                    {
-                        var newMovie = new Movie
-                        {
-                            Title = title,
-                            Description = overview,
-                            Rating = rating,
-                            Genre = genres,
-                            PosterUrl = poster,
-                            ReleaseDate = DateTime.UtcNow,
-                            CreatedAt = DateTime.UtcNow
-                        };
-                        _context.Movies.Add(newMovie);
-                        await _context.SaveChangesAsync();
-                    }
-
-                    item.Title = title;
-                    item.PosterUrl = poster;
-                    item.Type = "movie";
-                    item.Status = item.Status ?? "to-watch";
-                }
-                else
-                {
-                    Console.WriteLine($"⚠️ Kunde inte hitta TMDb-info för ID {item.MovieId}");
+                        : dto.PosterUrl;
                 }
             }
             catch (Exception ex)
@@ -123,60 +104,54 @@ namespace BingeBox.Controllers
             _context.WatchlistItems.Add(item);
             await _context.SaveChangesAsync();
 
-            return Ok(new { message = "Added to watchlist", item });
+            var response = new WatchlistItemDto
+            {
+                Id = item.Id,
+                UserId = item.UserId,
+                MovieId = item.MovieId,
+                Title = item.Title,
+                PosterUrl = item.PosterUrl,
+                Type = item.Type,
+                Status = item.Status,
+                AddedAt = item.AddedAt
+            };
+
+            return CreatedAtAction(nameof(GetUserWatchlist), response);
         }
 
-        // --------------------------------------------------------
-        // 🟨 POST /api/watchlist/update
-        // Ändra status (t.ex. "to-watch" -> "watched")
-        // --------------------------------------------------------
-        public class WatchlistUpdateDto
-        {
-            public int MovieId { get; set; }
-            public string Status { get; set; } = "to-watch";
-        }
-
+  
         [HttpPost("update")]
-        public async Task<IActionResult> UpdateWatchlistStatus([FromBody] WatchlistUpdateDto update)
+        public async Task<IActionResult> UpdateWatchlistStatus([FromBody] WatchlistUpdateDto dto)
         {
             var userId = GetUserId();
 
-            if (update.MovieId == 0)
-                return BadRequest("MovieId saknas i requesten.");
-
             var existing = await _context.WatchlistItems
-                .FirstOrDefaultAsync(w => w.MovieId == update.MovieId && w.UserId == userId);
+                .FirstOrDefaultAsync(w => w.MovieId == dto.MovieId && w.UserId == userId);
 
             if (existing == null)
                 return NotFound("Ingen film hittades i din watchlist.");
 
-            existing.Status = update.Status?.ToLower().Trim() ?? "to-watch";
+            existing.Status = dto.Status.ToLower().Trim();
             await _context.SaveChangesAsync();
 
-            return Ok(existing);
+            return Ok(new { message = "Status updated", existing.Status });
         }
 
-        // --------------------------------------------------------
-        // 🟥 DELETE /api/watchlist/{id}
-        // --------------------------------------------------------
+
         [HttpDelete("{id:int}")]
         public async Task<IActionResult> DeleteById(int id)
         {
             var item = await _context.WatchlistItems.FindAsync(id);
             if (item == null)
-            {
-                // ✅ Returnera 204 istället för 404 om redan borttagen
                 return NoContent();
-            }
 
             _context.WatchlistItems.Remove(item);
             await _context.SaveChangesAsync();
+
             return NoContent();
         }
 
-        // --------------------------------------------------------
-        // 🟥 DELETE /api/watchlist/by-movie/{movieId}
-        // --------------------------------------------------------
+
         [HttpDelete("by-movie/{movieId:int}")]
         public async Task<IActionResult> DeleteByMovieId(int movieId)
         {
@@ -186,29 +161,37 @@ namespace BingeBox.Controllers
                 .FirstOrDefaultAsync(w => w.MovieId == movieId && w.UserId == userId);
 
             if (item == null)
-            {
-                // ✅ Samma här: ingen 404 längre
                 return NoContent();
-            }
 
             _context.WatchlistItems.Remove(item);
             await _context.SaveChangesAsync();
+
             return NoContent();
         }
+
+
         [HttpGet("user/{userId}")]
-        public async Task<IActionResult> GetUserWatchlist(int userId)
+        public async Task<IActionResult> GetUserWatchlistById(int userId)
         {
             var items = await _context.WatchlistItems
                 .Where(w => w.UserId == userId)
+                .Select(w => new WatchlistItemDto
+                {
+                    Id = w.Id,
+                    UserId = w.UserId,
+                    MovieId = w.MovieId,
+                    Title = w.Title,
+                    PosterUrl = w.PosterUrl,
+                    Type = w.Type,
+                    Status = w.Status,
+                    AddedAt = w.AddedAt
+                })
                 .ToListAsync();
 
             return Ok(items);
         }
 
 
-        // --------------------------------------------------------
-        // 🧩 Debug-endpoint
-        // --------------------------------------------------------
         [HttpGet("debug-claims")]
         public IActionResult DebugClaims()
         {

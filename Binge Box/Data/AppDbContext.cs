@@ -11,6 +11,9 @@ namespace BingeBox.Data
         // 📦 Databastabeller
         public DbSet<Movie> Movies => Set<Movie>();
         public DbSet<User> Users { get; set; }
+        public DbSet<UserProfile> UserProfiles { get; set; }
+
+
         public DbSet<Favorite> Favorites { get; set; }
         public DbSet<Follower> Follows { get; set; }
         public DbSet<MovieOfTheWeek> MovieOfTheWeek { get; set; }
@@ -21,15 +24,20 @@ namespace BingeBox.Data
         public DbSet<Category> Categories { get; set; }
 
 
-
-        // ⚙️ Relationsinställningar
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            // ==============================
-            // 👥 Följarrelation (Follows)
-            // ==============================
+            modelBuilder.Entity<User>()
+         .HasOne(u => u.Profile)
+         .WithOne(p => p.User)
+         .HasForeignKey<UserProfile>(p => p.UserId)
+         .OnDelete(DeleteBehavior.Cascade);
+
+
+
+
+
             modelBuilder.Entity<Follower>(entity =>
             {
                 entity.ToTable("Follows");
@@ -46,36 +54,32 @@ namespace BingeBox.Data
                     .OnDelete(DeleteBehavior.NoAction);
             });
 
-            // ==============================
-            // 💛 Favorites (unika per user/movie)
-            // ==============================
+         
             modelBuilder.Entity<Favorite>()
                 .HasIndex(f => new { f.UserId, f.MovieId })
                 .IsUnique();
 
-            // ==============================
-            // 📝 Reviews
-            // ==============================
+ 
+
             modelBuilder.Entity<Review>()
                 .HasOne(r => r.User)
                 .WithMany()
                 .HasForeignKey(r => r.UserId)
-                .OnDelete(DeleteBehavior.NoAction); // förhindrar cascade-fel
+                .OnDelete(DeleteBehavior.NoAction);
 
-            // ==============================
-            // 💬 Comments
-            // ==============================
+        
+       
             modelBuilder.Entity<Comment>()
                 .HasOne(c => c.Review)
                 .WithMany()
                 .HasForeignKey(c => c.ReviewId)
-                .OnDelete(DeleteBehavior.Cascade); // radera kommentarer när review tas bort
+                .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<Comment>()
                 .HasOne(c => c.User)
                 .WithMany()
                 .HasForeignKey(c => c.UserId)
-                .OnDelete(DeleteBehavior.NoAction); // förhindrar "multiple cascade paths"
+                .OnDelete(DeleteBehavior.NoAction);
         }
     }
 }

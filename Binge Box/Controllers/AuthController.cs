@@ -6,6 +6,7 @@ using System.Security.Claims;
 using System.Text;
 using BingeBox.Data;
 using BingeBox.Models;
+using BingeBox.Dto.Auth;
 
 namespace BingeBox.Controllers
 {
@@ -23,49 +24,50 @@ namespace BingeBox.Controllers
         }
 
         // ==========================
-        // REGISTER (endast username, email, password)
+        // REGISTER
         // ==========================
         [HttpPost("register")]
-        public async Task<IActionResult> Register([FromBody] RegisterRequest req)
+        public async Task<IActionResult> Register([FromBody] RegisterDto dto)
         {
-            if (await _context.Users.AnyAsync(u => u.Email == req.Email))
+            if (await _context.Users.AnyAsync(u => u.Email == dto.Email))
                 return BadRequest(new { error = "Email already in use." });
 
             var user = new User
             {
-                Username = req.Username,
-                Email = req.Email,
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.Password),
+                Username = dto.Username,
+                Email = dto.Email,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
                 CreatedAt = DateTime.UtcNow,
-                Role = "User" // Alla nya användare blir vanliga användare
+                Role = string.IsNullOrWhiteSpace(dto.Role) ? "User" : dto.Role
             };
 
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(Register), new
+            return CreatedAtAction(nameof(Register), new AuthResponseDto
             {
-                user.Id,
-                user.Username,
-                user.Email,
-                user.Role
+                Id = user.Id,
+                Username = user.Username,
+                Email = user.Email,
+                Role = user.Role
             });
         }
 
+
         // ==========================
-        // LOGIN (stöd för både email & username)
+        // LOGIN
         // ==========================
         [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] LoginRequest req)
+        public async Task<IActionResult> Login([FromBody] LoginDto dto)
         {
             var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.Email == req.Identifier || u.Username == req.Identifier);
+                .FirstOrDefaultAsync(u => u.Email == dto.Identifier || u.Username == dto.Identifier);
 
-            if (user == null || !BCrypt.Net.BCrypt.Verify(req.Password, user.PasswordHash))
+            if (user == null || !BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
                 return Unauthorized(new { error = "Felaktigt användarnamn eller lösenord." });
 
-            var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.UTF8.GetBytes(_config["Jwt:Key"]);
+            var tokenHandler = new JwtSecurityTokenHandler();
 
             var claims = new List<Claim>
             {
@@ -87,19 +89,18 @@ namespace BingeBox.Controllers
             var token = tokenHandler.CreateToken(tokenDescriptor);
             var jwt = tokenHandler.WriteToken(token);
 
-            return Ok(new
+            var response = new AuthResponseDto
             {
-                access_token = jwt,
-                token_type = "Bearer",
-                expires_in = 10800,
-                user = new
-                {
-                    user.Id,
-                    user.Username,
-                    user.Email,
-                    user.Role
-                }
-            });
+                Id = user.Id,
+                Username = user.Username,
+                Email = user.Email,
+                Role = user.Role,
+                AccessToken = jwt,
+                TokenType = "Bearer",
+                ExpiresIn = 10800
+            };
+
+            return Ok(response);
         }
     }
 }

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using BingeBox.Data;
 using BingeBox.Models;
+using BingeBox.Dto.Category;
 
 namespace BingeBox.Controllers
 {
@@ -16,10 +17,7 @@ namespace BingeBox.Controllers
             _context = context;
         }
 
-        // ======================================================
-        // 🟢 GET: /api/categories
-        // Hämta alla kategorier (kan filtrera via slug)
-        // ======================================================
+
         [HttpGet]
         public async Task<IActionResult> GetAllCategories([FromQuery] string? slug = null)
         {
@@ -41,10 +39,6 @@ namespace BingeBox.Controllers
             return Ok(categories);
         }
 
-        // ======================================================
-        // 🟣 GET: /api/categories/{id}
-        // Hämta kategori baserat på ID
-        // ======================================================
         [HttpGet("{id:int}")]
         public async Task<IActionResult> GetCategoryById(int id)
         {
@@ -65,10 +59,6 @@ namespace BingeBox.Controllers
             return Ok(category);
         }
 
-        // ======================================================
-        // 🟡 POST: /api/categories
-        // Skapa ny kategori (kräver JWT)
-        // ======================================================
         [HttpPost]
         [Authorize]
         public async Task<IActionResult> CreateCategory([FromBody] CategoryCreateDto dto)
@@ -97,10 +87,6 @@ namespace BingeBox.Controllers
             return CreatedAtAction(nameof(GetCategoryById), new { id = category.Id }, readDto);
         }
 
-        // ======================================================
-        // ✏️ PATCH: /api/categories/{id}
-        // Uppdatera kategori (kräver JWT)
-        // ======================================================
         [HttpPatch("{id:int}")]
         [Authorize]
         public async Task<IActionResult> UpdateCategory(int id, [FromBody] CategoryUpdateDto dto)
@@ -122,10 +108,7 @@ namespace BingeBox.Controllers
             return NoContent();
         }
 
-        // ======================================================
-        // ❌ DELETE: /api/categories/{id}
-        // Radera kategori (kräver JWT)
-        // ======================================================
+
         [HttpDelete("{id:int}")]
         [Authorize]
         public async Task<IActionResult> DeleteCategory(int id)
@@ -139,9 +122,6 @@ namespace BingeBox.Controllers
             return NoContent();
         }
 
-        // ======================================================
-        // 🔧 Hjälpmetod för slug
-        // ======================================================
         private static string GenerateSlug(string name)
         {
             return new string(name

@@ -8,6 +8,7 @@ namespace BingeBox.Models
         public int Id { get; set; }
 
         // TMDB-id eller ditt lokala MovieId
+        [Required]
         public int MovieId { get; set; }
 
         // Grundläggande info som sparas för att visa på startsidan
@@ -17,9 +18,13 @@ namespace BingeBox.Models
         public string? PosterUrl { get; set; }
         public string? BackdropUrl { get; set; }
         public string? Genre { get; set; }
-        public double Rating { get; set; }
-        public string? Overview { get; set; }
-        public DateTime SelectedAt { get; set; } = DateTime.UtcNow;
 
+        // ✅ Gör Rating nullable så det matchar din DTO (double?)
+        public double? Rating { get; set; }
+
+        public string? Overview { get; set; }
+
+        // ✅ Behåll auto-tidstämpel
+        public DateTime SelectedAt { get; set; } = DateTime.UtcNow;
     }
 }

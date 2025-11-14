@@ -14,7 +14,7 @@ namespace BingeBox.Models
         public string? Description { get; set; }
 
         [Range(0, 10)]
-        public double Rating { get; set; }  // IMDB-liknande betyg 0–10
+        public double Rating { get; set; }
 
         [MaxLength(80)]
         public string? Genre { get; set; }
@@ -25,7 +25,7 @@ namespace BingeBox.Models
 
 
         [MaxLength(500)]
-        public string? PosterUrl { get; set; } // länk till filmens bild
+        public string? PosterUrl { get; set; } 
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public int? CategoryId { get; set; }

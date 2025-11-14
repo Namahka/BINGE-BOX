@@ -2,9 +2,10 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using BingeBox.Data;
 using BingeBox.Models;
-using System.Security.Claims;
+using BingeBox.Dto.Comments;
 
 namespace BingeBox.Controllers
 {
@@ -20,128 +21,71 @@ namespace BingeBox.Controllers
             _context = context;
         }
 
-        // =====================================================
-        // 🟢 POST: api/comments
-        // Skapa ny kommentar på en review
-        // =====================================================
         [HttpPost]
-        public async Task<IActionResult> PostComment([FromBody] Comment comment)
+        public async Task<IActionResult> PostComment([FromBody] CommentCreateDto dto)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            // 🔐 Hämta userId från JWT
-            var userIdClaim = User.FindFirst("nameid")?.Value
-                ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-            if (string.IsNullOrEmpty(userIdClaim))
-                return Unauthorized("Ingen giltig token hittades.");
-
-            comment.UserId = int.Parse(userIdClaim);
-            comment.CreatedAt = DateTime.UtcNow;
-
-            // ✅ Kontrollera att reviewn finns
-            var reviewExists = await _context.Reviews.AnyAsync(r => r.Id == comment.ReviewId);
+            var reviewExists = await _context.Reviews.AnyAsync(r => r.Id == dto.ReviewId);
             if (!reviewExists)
                 return NotFound("Review not found.");
+
+            var comment = new Comment
+            {
+                ReviewId = dto.ReviewId,
+                Content = dto.Content,
+                UserId = userId,
+                CreatedAt = DateTime.UtcNow
+            };
 
             _context.Comments.Add(comment);
             await _context.SaveChangesAsync();
 
-            // 🟡 Hämta användardata för svaret
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == comment.UserId);
+            var user = await _context.Users
+                .Include(u => u.Profile)
+                .FirstOrDefaultAsync(u => u.Id == userId);
 
-            return Ok(new
+            var response = new CommentDto
             {
-                comment.Id,
-                comment.ReviewId,
-                comment.UserId,
-                comment.Content,
-                comment.CreatedAt,
-                Username = user?.Username ?? "Unknown",
-                ProfileImageUrl = user?.ProfileImageUrl ?? "/default-avatar.png"
-            });
+                Id = comment.Id,
+                ReviewId = dto.ReviewId,
+                UserId = userId,
+                Content = comment.Content,
+                CreatedAt = comment.CreatedAt,
+                Username = user!.Username,
+                ProfileImageUrl = user.Profile?.ProfileImageUrl ?? "/default-avatar.png"
+            };
+
+            return CreatedAtAction(nameof(GetCommentsByReviewId), new { reviewId = dto.ReviewId }, response);
         }
 
-        // ✅ GET: api/comments/review/5
         [AllowAnonymous]
         [HttpGet("review/{reviewId}")]
         public async Task<IActionResult> GetCommentsByReviewId(int reviewId)
         {
             var comments = await _context.Comments
                 .Where(c => c.ReviewId == reviewId)
-                .Include(c => c.User) // 🟡 viktigt: laddar användardata
+                .Include(c => c.User)
+                .ThenInclude(u => u.Profile)
                 .OrderByDescending(c => c.CreatedAt)
-                .Select(c => new
+                .Select(c => new CommentDto
                 {
-                    c.Id,
-                    c.ReviewId,
-                    c.UserId,
-                    c.Content,
-                    c.CreatedAt,
+                    Id = c.Id,
+                    ReviewId = c.ReviewId,
+                    UserId = c.UserId,
+                    Content = c.Content,
+                    CreatedAt = c.CreatedAt,
                     Username = c.User.Username,
-                    ProfileImageUrl = c.User.ProfileImageUrl // 🟡 här skickas bilden!
+                    ProfileImageUrl = c.User.Profile != null
+                        ? c.User.Profile.ProfileImageUrl
+                        : "/default-avatar.png"
                 })
                 .ToListAsync();
 
             return Ok(comments);
-        }
-
-
-        // =====================================================
-        // ✏️ PUT: api/comments/{id}
-        // Redigera egen kommentar
-        // =====================================================
-        [HttpPut("{id}")]
-        public async Task<IActionResult> EditComment(int id, [FromBody] Comment updated)
-        {
-            var userIdClaim = User.FindFirst("nameid")?.Value
-                ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-            if (string.IsNullOrEmpty(userIdClaim))
-                return Unauthorized();
-
-            var userId = int.Parse(userIdClaim);
-
-            var comment = await _context.Comments.FindAsync(id);
-            if (comment == null)
-                return NotFound("Comment not found.");
-
-            if (comment.UserId != userId)
-                return Forbid("Du får bara redigera dina egna kommentarer.");
-
-            comment.Content = updated.Content;
-            await _context.SaveChangesAsync();
-
-            return Ok(comment);
-        }
-
-        // =====================================================
-        // ❌ DELETE: api/comments/{id}
-        // Radera egen kommentar
-        // =====================================================
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteComment(int id)
-        {
-            var userIdClaim = User.FindFirst("nameid")?.Value
-                ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-            if (string.IsNullOrEmpty(userIdClaim))
-                return Unauthorized();
-
-            var userId = int.Parse(userIdClaim);
-
-            var comment = await _context.Comments.FindAsync(id);
-            if (comment == null)
-                return NotFound("Comment not found.");
-
-            if (comment.UserId != userId)
-                return Forbid("Du får bara ta bort dina egna kommentarer.");
-
-            _context.Comments.Remove(comment);
-            await _context.SaveChangesAsync();
-
-            return Ok(new { message = "Comment deleted successfully." });
         }
     }
 }

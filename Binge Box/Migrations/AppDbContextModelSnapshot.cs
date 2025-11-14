@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace Binge_Box.Migrations
+namespace BingeBox.Migrations
 {
     [DbContext(typeof(AppDbContext))]
     partial class AppDbContextModelSnapshot : ModelSnapshot
@@ -218,7 +218,7 @@ namespace Binge_Box.Migrations
                     b.Property<string>("PosterUrl")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<double>("Rating")
+                    b.Property<double?>("Rating")
                         .HasColumnType("float");
 
                     b.Property<DateTime>("SelectedAt")
@@ -294,13 +294,10 @@ namespace Binge_Box.Migrations
                     b.ToTable("ReviewLikes");
                 });
 
-            modelBuilder.Entity("BingeBox.Models.User", b =>
+            modelBuilder.Entity("BingeBox.Models.UserProfile", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
+                    b.Property<int>("UserId")
                         .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("AboutMe")
                         .HasColumnType("nvarchar(max)");
@@ -308,35 +305,15 @@ namespace Binge_Box.Migrations
                     b.Property<string>("Bio")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("Note")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("PasswordHash")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ProfileImageUrl")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Role")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
+                    b.HasKey("UserId");
 
-                    b.Property<string>("Username")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Users");
+                    b.ToTable("UserProfiles");
                 });
 
             modelBuilder.Entity("BingeBox.Models.WatchlistItem", b =>
@@ -378,6 +355,39 @@ namespace Binge_Box.Migrations
                     b.ToTable("WatchlistItems");
                 });
 
+            modelBuilder.Entity("User", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Users");
+                });
+
             modelBuilder.Entity("BingeBox.Models.Comment", b =>
                 {
                     b.HasOne("BingeBox.Models.Review", "Review")
@@ -386,7 +396,7 @@ namespace Binge_Box.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("BingeBox.Models.User", "User")
+                    b.HasOne("User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.NoAction)
@@ -399,7 +409,7 @@ namespace Binge_Box.Migrations
 
             modelBuilder.Entity("BingeBox.Models.Favorite", b =>
                 {
-                    b.HasOne("BingeBox.Models.User", "User")
+                    b.HasOne("User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -410,13 +420,13 @@ namespace Binge_Box.Migrations
 
             modelBuilder.Entity("BingeBox.Models.Follower", b =>
                 {
-                    b.HasOne("BingeBox.Models.User", "FollowedUser")
+                    b.HasOne("User", "FollowedUser")
                         .WithMany()
                         .HasForeignKey("FollowedId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.HasOne("BingeBox.Models.User", "FollowerUser")
+                    b.HasOne("User", "FollowerUser")
                         .WithMany()
                         .HasForeignKey("FollowerId")
                         .OnDelete(DeleteBehavior.NoAction)
@@ -438,7 +448,7 @@ namespace Binge_Box.Migrations
 
             modelBuilder.Entity("BingeBox.Models.Review", b =>
                 {
-                    b.HasOne("BingeBox.Models.User", "User")
+                    b.HasOne("User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.NoAction)
@@ -455,7 +465,7 @@ namespace Binge_Box.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("BingeBox.Models.User", "User")
+                    b.HasOne("User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -466,9 +476,20 @@ namespace Binge_Box.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("BingeBox.Models.UserProfile", b =>
+                {
+                    b.HasOne("User", "User")
+                        .WithOne("Profile")
+                        .HasForeignKey("BingeBox.Models.UserProfile", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("BingeBox.Models.WatchlistItem", b =>
                 {
-                    b.HasOne("BingeBox.Models.User", "User")
+                    b.HasOne("User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -480,6 +501,11 @@ namespace Binge_Box.Migrations
             modelBuilder.Entity("BingeBox.Models.Category", b =>
                 {
                     b.Navigation("Movies");
+                });
+
+            modelBuilder.Entity("User", b =>
+                {
+                    b.Navigation("Profile");
                 });
 #pragma warning restore 612, 618
         }

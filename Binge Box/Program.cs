@@ -12,17 +12,12 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// -------------------------------
-// 💾 DATABASE
-// -------------------------------
 builder.Services.AddControllers();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// -------------------------------
-// 🔐 JWT Authentication
-// -------------------------------
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -36,7 +31,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(key),
 
-            // 🧩 Viktigt! Låt "nameid" i JWT mappa till User.Id
+       
             NameClaimType = ClaimTypes.NameIdentifier,
             RoleClaimType = ClaimTypes.Role
         };
@@ -45,12 +40,9 @@ builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
 });
-// -------------------------------
-// 🎬 TMDb API-konfiguration
-// -------------------------------
+
 builder.Services.Configure<TmdbOptions>(builder.Configuration.GetSection("TMDb"));
 
-// ✅ Registrera både HttpClient och TmdbClient korrekt
 builder.Services.AddHttpClient("tmdb", (sp, http) =>
 {
     var opts = sp.GetRequiredService<IOptions<TmdbOptions>>().Value;
@@ -58,12 +50,10 @@ builder.Services.AddHttpClient("tmdb", (sp, http) =>
     http.Timeout = TimeSpan.FromSeconds(15);
 });
 
-// ✅ Registrera själva klienten (löser ditt 500-fel)
+
 builder.Services.AddScoped<ITmdbClient, TmdbClient>();
 
-// -------------------------------
-// 🌐 CORS
-// -------------------------------
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -72,9 +62,7 @@ builder.Services.AddCors(options =>
               .AllowAnyMethod());
 });
 
-// -------------------------------
-// 🧾 Swagger + JWT support
-// -------------------------------
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -106,9 +94,7 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-// -------------------------------
-// 🚀 APP PIPELINE
-// -------------------------------
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -117,9 +103,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-//app.UseHttpsRedirection();
 
-// 🖼️ Tillåt visning av profilbilder och uppladdade filer
 app.UseStaticFiles();
 
 app.UseCors("AllowAll");

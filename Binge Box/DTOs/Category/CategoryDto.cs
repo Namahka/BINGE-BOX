@@ -1,4 +1,4 @@
-﻿namespace BingeBox.Models
+﻿namespace BingeBox.Dto.Category
 {
     public class CategoryDto
     {

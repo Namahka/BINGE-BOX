@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using BingeBox.Data;
 using BingeBox.Models;
+using BingeBox.DTOs.Reviews;
 
 namespace BingeBox.Controllers
 {
@@ -14,84 +15,76 @@ namespace BingeBox.Controllers
     public class ReviewsController : ControllerBase
     {
         private readonly AppDbContext _context;
+        public ReviewsController(AppDbContext context) => _context = context;
 
-        public ReviewsController(AppDbContext context)
-        {
-            _context = context;
-        }
-
-        // ======================================================
-        // 🟢 POST: api/reviews
-        // Skapa ny review (kräver inloggning)
-        // ======================================================
         [HttpPost]
-        public async Task<IActionResult> PostReview([FromBody] Review review)
+        public async Task<IActionResult> PostReview([FromBody] ReviewCreateDto dto)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            // 🧠 Hämta UserId från token
-            var userIdClaim = User.FindFirst("nameid")?.Value
-                ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst("nameid")?.Value;
 
             if (string.IsNullOrEmpty(userIdClaim))
                 return Unauthorized("Ingen giltig token hittades.");
 
-            review.UserId = int.Parse(userIdClaim);
-            review.CreatedAt = DateTime.UtcNow;
-            review.LikesCount = 0;
+            var userId = int.Parse(userIdClaim);
+
+            var review = new Review
+            {
+                UserId = userId,
+                MovieId = dto.MovieId,
+                Rating = dto.Rating,
+                Content = dto.Content,
+                LikesCount = 0,
+                CreatedAt = DateTime.UtcNow
+            };
 
             _context.Reviews.Add(review);
             await _context.SaveChangesAsync();
 
-            // Returnera review + användarinfo
-            var result = await _context.Reviews
-                .Include(r => r.User)
-                .FirstOrDefaultAsync(r => r.Id == review.Id);
+            var user = await _context.Users.FindAsync(userId);
 
-            return Ok(result);
+            var response = new ReviewDto
+            {
+                Id = review.Id,
+                MovieId = review.MovieId,
+                UserId = review.UserId,
+                Username = user?.Username ?? "Unknown",
+                Rating = review.Rating,
+                Content = review.Content,
+                LikesCount = review.LikesCount,
+                CreatedAt = review.CreatedAt
+            };
+
+            return CreatedAtAction(nameof(GetReviewsByMovie), new { movieId = review.MovieId }, response);
         }
 
-        // ======================================================
-        // 🟣 GET: api/reviews/movie/{movieId}
-        // Hämtar alla reviews för en viss film
-        // ======================================================
         [HttpGet("movie/{movieId}")]
         [AllowAnonymous]
         public async Task<IActionResult> GetReviewsByMovie(int movieId)
         {
-            try
-            {
-                var reviews = await _context.Reviews
-                    .Include(r => r.User)
-                    .Where(r => r.MovieId == movieId)
-                    .OrderByDescending(r => r.CreatedAt)
-                    .Select(r => new
-                    {
-                        r.Id,
-                        r.MovieId,
-                        r.UserId,
-                        Username = EF.Property<string>(r.User, "Username"), // ✅ tryggare sätt
-                        r.Rating,
-                        r.Content,
-                        r.LikesCount,
-                        r.CreatedAt
-                    })
-                    .ToListAsync();
+            var reviews = await _context.Reviews
+                .Include(r => r.User)
+                .Where(r => r.MovieId == movieId)
+                .OrderByDescending(r => r.CreatedAt)
+                .Select(r => new ReviewDto
+                {
+                    Id = r.Id,
+                    MovieId = r.MovieId,
+                    UserId = r.UserId,
+                    Username = r.User != null ? r.User.Username : "Unknown",
+                    Rating = r.Rating,
+                    Content = r.Content,
+                    LikesCount = r.LikesCount,
+                    CreatedAt = r.CreatedAt
+                })
+                .ToListAsync();
 
-                return Ok(reviews);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { error = ex.Message, trace = ex.StackTrace });
-            }
+            return Ok(reviews);
         }
 
-
-        // ======================================================
-        // 🔵 GET: api/reviews/user/{userId}
-        // Hämtar alla reviews skrivna av en specifik användare
-        // ======================================================
         [HttpGet("user/{userId}")]
         [AllowAnonymous]
         public async Task<IActionResult> GetReviewsByUser(int userId)
@@ -100,30 +93,28 @@ namespace BingeBox.Controllers
                 .Include(r => r.User)
                 .Where(r => r.UserId == userId)
                 .OrderByDescending(r => r.CreatedAt)
-                .Select(r => new
+                .Select(r => new ReviewDto
                 {
-                    r.Id,
-                    r.MovieId,
-                    r.Rating,
-                    r.Content,
-                    r.LikesCount,
-                    r.CreatedAt
+                    Id = r.Id,
+                    MovieId = r.MovieId,
+                    UserId = r.UserId,
+                    Username = r.User != null ? r.User.Username : "Unknown",
+                    Rating = r.Rating,
+                    Content = r.Content,
+                    LikesCount = r.LikesCount,
+                    CreatedAt = r.CreatedAt
                 })
                 .ToListAsync();
 
             return Ok(reviews);
         }
-       
-        // ======================================================
-        // ✏️ PUT: api/reviews/{id}
-        // Redigera en review (endast ägaren)
-        // ======================================================
+
         [HttpPut("{id}")]
         [Authorize]
-        public async Task<IActionResult> EditReview(int id, [FromBody] Review updated)
+        public async Task<IActionResult> EditReview(int id, [FromBody] ReviewUpdateDto dto)
         {
-            var userIdClaim = User.FindFirst("nameid")?.Value
-                ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst("nameid")?.Value;
 
             if (string.IsNullOrEmpty(userIdClaim))
                 return Unauthorized("Ingen giltig token hittades.");
@@ -137,23 +128,22 @@ namespace BingeBox.Controllers
             if (review.UserId != userId)
                 return Forbid("Du kan endast redigera dina egna reviews.");
 
-            review.Content = updated.Content ?? review.Content;
-            review.Rating = updated.Rating != 0 ? updated.Rating : review.Rating;
-            await _context.SaveChangesAsync();
+            if (dto.Content != null)
+                review.Content = dto.Content;
 
-            return Ok(review);
+            if (dto.Rating.HasValue)
+                review.Rating = dto.Rating.Value;
+
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Review updated successfully." });
         }
 
-        // ======================================================
-        // ❌ DELETE: api/reviews/{id}
-        // Ta bort review (endast ägaren)
-        // ======================================================
         [HttpDelete("{id}")]
         [Authorize]
         public async Task<IActionResult> DeleteReview(int id)
         {
-            var userIdClaim = User.FindFirst("nameid")?.Value
-                ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? User.FindFirst("nameid")?.Value;
 
             if (string.IsNullOrEmpty(userIdClaim))
                 return Unauthorized("Ingen giltig token hittades.");
@@ -172,6 +162,5 @@ namespace BingeBox.Controllers
 
             return Ok(new { message = "Review deleted successfully." });
         }
-
     }
 }

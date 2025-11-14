@@ -3,6 +3,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authorization;
 using BingeBox.Data;
 using BingeBox.Models;
+using BingeBox.DTOs.MovieOfTheWeek;
+using BingeBox.DTOs.MovieOfTheWeek;
+
 
 namespace BingeBox.Controllers
 {
@@ -11,12 +14,13 @@ namespace BingeBox.Controllers
     public class MovieOfTheWeekController : ControllerBase
     {
         private readonly AppDbContext _context;
+
         public MovieOfTheWeekController(AppDbContext context)
         {
             _context = context;
         }
 
-        // 🔹 GET – öppen för alla (frontend hämtar denna)
+   
         [HttpGet]
         [AllowAnonymous]
         public async Task<IActionResult> GetMovieOfTheWeek()
@@ -28,20 +32,33 @@ namespace BingeBox.Controllers
             if (movie == null)
                 return NotFound("Ingen film vald ännu.");
 
-            return Ok(movie);
+            var dto = new MovieOfTheWeekDto
+            {
+                Id = movie.Id,
+                MovieId = movie.MovieId,
+                Title = movie.Title,
+                PosterUrl = movie.PosterUrl,
+                BackdropUrl = movie.BackdropUrl,
+                Genre = movie.Genre,
+                Rating = movie.Rating,
+                Overview = movie.Overview,
+                SelectedAt = movie.SelectedAt
+            };
+
+            return Ok(dto);
         }
 
-        // 🔸 POST – endast Admin får köra (via JWT)
         [HttpPost("set")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> SetMovieOfTheWeek([FromBody] MovieOfTheWeek newMovie)
+        public async Task<IActionResult> SetMovieOfTheWeek([FromBody] MovieOfTheWeekCreateDto dto)
         {
-            if (newMovie == null)
-                return BadRequest("Ingen filmdata mottagen.");
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
 
-            string? posterUrl = newMovie.PosterUrl;
-            string? backdropUrl = newMovie.BackdropUrl;
+            string? posterUrl = dto.PosterUrl;
+            string? backdropUrl = dto.BackdropUrl;
 
+   
             if (!string.IsNullOrWhiteSpace(posterUrl) && !posterUrl.StartsWith("http"))
                 posterUrl = $"https://image.tmdb.org/t/p/w500{posterUrl}";
 
@@ -50,20 +67,33 @@ namespace BingeBox.Controllers
 
             var movie = new MovieOfTheWeek
             {
-                MovieId = newMovie.MovieId,
-                Title = newMovie.Title,
+                MovieId = dto.MovieId,
+                Title = dto.Title,
                 PosterUrl = posterUrl,
                 BackdropUrl = backdropUrl,
-                Genre = newMovie.Genre,
-                Rating = newMovie.Rating,
-                Overview = newMovie.Overview,
+                Genre = dto.Genre,
+                Rating = dto.Rating,
+                Overview = dto.Overview,
                 SelectedAt = DateTime.UtcNow
             };
 
             _context.MovieOfTheWeek.Add(movie);
             await _context.SaveChangesAsync();
 
-            return Ok(movie);
+            var response = new MovieOfTheWeekDto
+            {
+                Id = movie.Id,
+                MovieId = movie.MovieId,
+                Title = movie.Title,
+                PosterUrl = movie.PosterUrl,
+                BackdropUrl = movie.BackdropUrl,
+                Genre = movie.Genre,
+                Rating = movie.Rating,
+                Overview = movie.Overview,
+                SelectedAt = movie.SelectedAt
+            };
+
+            return CreatedAtAction(nameof(GetMovieOfTheWeek), response);
         }
     }
 }

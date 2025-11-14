@@ -17,7 +17,6 @@ namespace BingeBox.Controllers
             _tmdb = tmdb;
         }
 
-        // 🎭 Genre-map för TMDb ID:n
         private static readonly Dictionary<int, string> GenreMap = new()
         {
             { 28, "Action" }, { 12, "Adventure" }, { 16, "Animation" },
@@ -29,7 +28,7 @@ namespace BingeBox.Controllers
             { 37, "Western" }
         };
 
-        // 🔥 Populära filmer
+    
         [HttpGet("popular")]
         public async Task<IActionResult> GetPopular([FromQuery] int page = 1)
         {
@@ -53,7 +52,6 @@ namespace BingeBox.Controllers
             return Ok(formatted);
         }
 
-        // 🔍 Dynamisk sökning (filmer, serier, personer)
         [HttpGet("search/{category}")]
         public async Task<IActionResult> Search(string category, [FromQuery] string query, [FromQuery] int page = 1)
         {
@@ -98,7 +96,7 @@ namespace BingeBox.Controllers
             return Ok(formatted);
         }
 
-        // 🎬 Detaljer för film/serie
+
         [HttpGet("details/{type}/{id}")]
         public async Task<IActionResult> GetDetails(string type, int id)
         {
@@ -125,7 +123,7 @@ namespace BingeBox.Controllers
                 : (root.TryGetProperty("first_air_date", out var r2) ? r2.GetString() : null);
             double rating = root.TryGetProperty("vote_average", out var ra) ? ra.GetDouble() : 0;
 
-            // 🎞️ Genrelistan
+
             string genreText = "Okänd genre";
             if (root.TryGetProperty("genres", out var genreArray) && genreArray.ValueKind == JsonValueKind.Array)
             {
@@ -183,7 +181,6 @@ namespace BingeBox.Controllers
             });
         }
 
-        // 👤 Person-detaljer
         [HttpGet("person/{id}")]
         public async Task<IActionResult> GetPerson(int id)
         {
@@ -230,29 +227,27 @@ namespace BingeBox.Controllers
             });
         }
 
-        // 🧭 BROWSE — år, årtionde, genre, rating, upcoming
+
         [HttpGet("browse")]
         public async Task<IActionResult> BrowseMovies(
       [FromQuery] string? decade = null,
       [FromQuery] string? genre = null,
-      [FromQuery] string? ratingSort = null,   // "High to Low" eller "Low to High"
+      [FromQuery] string? ratingSort = null,   
       [FromQuery] int page = 1)
         {
             var apiKey = "ce1d432c64f5d84d0cc30b70d6f30600";
             var baseUrl = "https://api.themoviedb.org/3/discover/movie";
 
-            // --- 🧩 Basparametrar ---
+           
             var sb = new System.Text.StringBuilder(
                 $"{baseUrl}?api_key={apiKey}&language=en-US&region=US&include_adult=false&page={page}");
 
-            // --- 🗓️ Årtionde ---
-            // Endast decennier tillåts, t.ex. "1980s", "1990s", "2000s", "2010s", "2020s"
             if (!string.IsNullOrEmpty(decade))
             {
                 decade = decade.Trim().ToLower();
                 if (decade.EndsWith("s"))
                 {
-                    var decadeStr = decade.Substring(0, 4); // "1980" ur "1980s"
+                    var decadeStr = decade.Substring(0, 4); 
                     if (int.TryParse(decadeStr, out int d))
                     {
                         var start = $"{d}-01-01";
@@ -262,7 +257,6 @@ namespace BingeBox.Controllers
                 }
             }
 
-            // --- 🎭 Genre ---
             if (!string.IsNullOrEmpty(genre))
             {
                 var match = GenreMap.FirstOrDefault(g => g.Value.Equals(genre, StringComparison.OrdinalIgnoreCase));
@@ -270,13 +264,11 @@ namespace BingeBox.Controllers
                     sb.Append($"&with_genres={match.Key}");
             }
 
-            // --- ⭐ Sortering ---
-            // TMDb stöder inte global sortering på rating för alla filmer direkt,
-            // men vi kan använda "vote_average.desc" för att få globalt högst betyg.
+            
             if (!string.IsNullOrEmpty(ratingSort))
             {
                 if (ratingSort.Equals("High to Low", StringComparison.OrdinalIgnoreCase))
-                    sb.Append("&sort_by=vote_average.desc&vote_count.gte=100"); // filtrera bort skräp med 1 röst
+                    sb.Append("&sort_by=vote_average.desc&vote_count.gte=100");
                 else if (ratingSort.Equals("Low to High", StringComparison.OrdinalIgnoreCase))
                     sb.Append("&sort_by=vote_average.asc&vote_count.gte=100");
                 else
@@ -290,7 +282,6 @@ namespace BingeBox.Controllers
             var url = sb.ToString();
             Console.WriteLine($"📡 TMDB QUERY: {url}");
 
-            // --- 🔗 Anrop till TMDb ---
             using var client = new HttpClient();
             var response = await client.GetAsync(url);
             if (!response.IsSuccessStatusCode)
@@ -335,7 +326,7 @@ namespace BingeBox.Controllers
 
             var totalPages = doc.RootElement.TryGetProperty("total_pages", out var tp) ? tp.GetInt32() : 1;
 
-            // --- 🔥 Returnera korrekt ---
+     
             return Ok(new
             {
                 currentPage = page,
@@ -345,21 +336,16 @@ namespace BingeBox.Controllers
         }
 
 
-        // ======================================================
-        // 🟣 GET: /api/tmdb/slug/{slug}
-        // Hämta film via slug direkt från TMDb (ex: "the-dark-knight")
-        // ======================================================
         [HttpGet("slug/{slug}")]
         [AllowAnonymous]
         public async Task<IActionResult> GetBySlug(string slug)
         {
             try
             {
-                // 🧠 Gör om slug till vanlig söktext ("the-dark-knight" -> "The Dark Knight")
+               
                 var query = System.Globalization.CultureInfo.CurrentCulture.TextInfo
                     .ToTitleCase(slug.Replace("-", " "));
 
-                // 🔍 Anropa TMDb SearchMoviesAsync
                 var searchResults = await _tmdb.SearchMoviesAsync(query);
 
                 if (searchResults == null || searchResults.results == null || searchResults.results.Count == 0)

@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using BingeBox.Data;
 using BingeBox.Models;
+using BingeBox.DTOs.Users;
 
 namespace BingeBox.Controllers
 {
@@ -21,112 +22,121 @@ namespace BingeBox.Controllers
             _env = env;
         }
 
-        // ===============================
-        // 👤 Hämta inloggad profil
-        // ===============================
+        // ==========================
+        // GET: /api/user/profile
+        // ==========================
         [HttpGet("profile")]
         public async Task<IActionResult> GetProfile()
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (userId == null) return Unauthorized();
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
             var user = await _context.Users
+                .Include(u => u.Profile)
                 .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Id == int.Parse(userId));
+                .FirstOrDefaultAsync(u => u.Id == userId);
 
-            if (user == null) return NotFound();
+            if (user == null)
+                return NotFound();
 
-            string? fullImageUrl = null;
-            if (!string.IsNullOrEmpty(user.ProfileImageUrl))
-                fullImageUrl = $"{Request.Scheme}://{Request.Host}{user.ProfileImageUrl}";
-
-            return Ok(new
+            var dto = new UserProfileDto
             {
-                user.Id,
-                user.Username,
-                user.Email,
-                ProfileImageUrl = fullImageUrl,
-                user.Bio,
-                user.Note,
-                user.AboutMe,
-                user.CreatedAt,
-                Role = user.Role ?? "User"
-            });
+                Id = user.Id,
+                Username = user.Username,
+                Email = user.Email,
+                ProfileImageUrl = user.Profile?.ProfileImageUrl,
+                Bio = user.Profile?.Bio,
+                Note = user.Profile?.Note,
+                AboutMe = user.Profile?.AboutMe,
+                CreatedAt = user.CreatedAt,
+                Role = user.Role
+            };
+
+            return Ok(dto);
         }
 
-        // ===============================
-        // ✏️ Uppdatera profil
-        // ===============================
+        // ==========================
+        // PUT: /api/user/update
+        // ==========================
         [HttpPut("update")]
         [RequestSizeLimit(10_000_000)]
-        public async Task<IActionResult> UpdateProfile([FromForm] UpdateProfileRequest req)
+        public async Task<IActionResult> UpdateProfile([FromForm] UserUpdateDto dto)
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (userId == null) return Unauthorized();
+            var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-            var user = await _context.Users.FindAsync(int.Parse(userId));
-            if (user == null) return NotFound();
+            var user = await _context.Users
+                .Include(u => u.Profile)
+                .FirstOrDefaultAsync(u => u.Id == userId);
+
+            if (user == null)
+                return NotFound();
+
+            // Skapa profil om den inte finns
+            if (user.Profile == null)
+            {
+                user.Profile = new UserProfile { UserId = userId };
+            }
 
             bool updated = false;
 
-            if (!string.IsNullOrWhiteSpace(req.Bio))
+            if (!string.IsNullOrWhiteSpace(dto.Bio))
             {
-                user.Bio = req.Bio;
+                user.Profile.Bio = dto.Bio;
                 updated = true;
             }
 
-            if (!string.IsNullOrWhiteSpace(req.Note))
+            if (!string.IsNullOrWhiteSpace(dto.Note))
             {
-                user.Note = req.Note;
+                user.Profile.Note = dto.Note;
                 updated = true;
             }
 
-            if (!string.IsNullOrWhiteSpace(req.AboutMe))
+            if (!string.IsNullOrWhiteSpace(dto.AboutMe))
             {
-                user.AboutMe = req.AboutMe;
+                user.Profile.AboutMe = dto.AboutMe;
                 updated = true;
             }
 
-            if (req.ProfileImage != null && req.ProfileImage.Length > 0)
+            // ***************
+            // Profile-bild
+            // ***************
+            if (dto.ProfileImage != null && dto.ProfileImage.Length > 0)
             {
                 var uploadsDir = Path.Combine(_env.WebRootPath, "uploads");
                 if (!Directory.Exists(uploadsDir))
                     Directory.CreateDirectory(uploadsDir);
 
-                var fileName = $"{Guid.NewGuid()}_{Path.GetFileName(req.ProfileImage.FileName)}";
+                var fileName = $"{Guid.NewGuid()}_{dto.ProfileImage.FileName}";
                 var filePath = Path.Combine(uploadsDir, fileName);
 
                 using (var stream = new FileStream(filePath, FileMode.Create))
-                    await req.ProfileImage.CopyToAsync(stream);
+                    await dto.ProfileImage.CopyToAsync(stream);
 
-                user.ProfileImageUrl = $"/uploads/{fileName}";
+                user.Profile.ProfileImageUrl = $"/uploads/{fileName}";
                 updated = true;
-
-                Console.WriteLine($"✅ Sparade profilbild: {filePath}");
             }
 
             if (updated)
                 await _context.SaveChangesAsync();
 
-            string? fullImageUrl = null;
-            if (!string.IsNullOrEmpty(user.ProfileImageUrl))
-                fullImageUrl = $"{Request.Scheme}://{Request.Host}{user.ProfileImageUrl}";
-
-            return Ok(new
+            var response = new UserProfileDto
             {
-                message = "Profile updated successfully",
-                user.Username,
-                user.Email,
-                ProfileImageUrl = fullImageUrl,
-                user.Bio,
-                user.Note,
-                user.AboutMe
-            });
+                Id = user.Id,
+                Username = user.Username,
+                Email = user.Email,
+                ProfileImageUrl = user.Profile?.ProfileImageUrl,
+                Bio = user.Profile?.Bio,
+                Note = user.Profile?.Note,
+                AboutMe = user.Profile?.AboutMe,
+                CreatedAt = user.CreatedAt,
+                Role = user.Role
+            };
+
+            return Ok(response);
         }
 
-        // ===============================
-        // 🔍 Sök användare
-        // ===============================
+        // ==========================
+        // GET: /api/user/search?query=x
+        // ==========================
         [HttpGet("search")]
         public IActionResult SearchUsers([FromQuery] string query)
         {
@@ -134,61 +144,48 @@ namespace BingeBox.Controllers
                 return BadRequest("Query saknas");
 
             var users = _context.Users
+                .Include(u => u.Profile)
                 .Where(u => u.Username.Contains(query))
-                .AsEnumerable()
-                .Select(u => new
+                .AsEnumerable() // gör det LINQ-to-Objects → tillåter ?. operator
+                .Select(u => new UserSearchDto
                 {
-                    id = u.Id,
-                    username = u.Username,
-                    profileImageUrl = string.IsNullOrEmpty(u.ProfileImageUrl)
-                        ? null
-                        : $"{Request.Scheme}://{Request.Host}{u.ProfileImageUrl}"
+                    Id = u.Id,
+                    Username = u.Username,
+                    ProfileImageUrl = u.Profile?.ProfileImageUrl
                 })
                 .ToList();
 
             return Ok(users);
         }
 
-        // ===============================
-        // 👀 Hämta annan användare via ID
-        // ===============================
+        // ==========================
+        // GET: /api/user/{id}
+        // ==========================
         [HttpGet("{id}")]
         public async Task<IActionResult> GetUserById(int id)
         {
             var user = await _context.Users
+                .Include(u => u.Profile)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(u => u.Id == id);
 
             if (user == null)
                 return NotFound();
 
-            string? fullImageUrl = null;
-            if (!string.IsNullOrEmpty(user.ProfileImageUrl))
-                fullImageUrl = $"{Request.Scheme}://{Request.Host}{user.ProfileImageUrl}";
-
-            return Ok(new
+            var dto = new UserProfileDto
             {
-                user.Id,
-                user.Username,
-                user.Email,
-                ProfileImageUrl = fullImageUrl,
-                user.Bio,
-                user.Note,
-                user.AboutMe,
-                user.CreatedAt,
-                Role = user.Role ?? "User"
-            });
-        }
-    }
+                Id = user.Id,
+                Username = user.Username,
+                Email = user.Email,
+                ProfileImageUrl = user.Profile?.ProfileImageUrl,
+                Bio = user.Profile?.Bio,
+                Note = user.Profile?.Note,
+                AboutMe = user.Profile?.AboutMe,
+                CreatedAt = user.CreatedAt,
+                Role = user.Role
+            };
 
-    // ===============================
-    // 🧩 Request-modell
-    // ===============================
-    public class UpdateProfileRequest
-    {
-        public string? Bio { get; set; }
-        public string? Note { get; set; }      // 👈 nytt
-        public string? AboutMe { get; set; }   // 👈 nytt
-        public IFormFile? ProfileImage { get; set; }
+            return Ok(dto);
+        }
     }
 }

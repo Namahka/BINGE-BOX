@@ -20,14 +20,11 @@ namespace BingeBox.Controllers
             _context = context;
         }
 
-        // =====================================================
-        // 🟢 POST: api/reviewlikes/{reviewId}/toggle
-        // Gilla eller ogilla en review
-        // =====================================================
+   
         [HttpPost("{reviewId}/toggle")]
         public async Task<IActionResult> ToggleLike(int reviewId)
         {
-            // 🔐 Hämta användar-ID från JWT
+           
             var userIdClaim = User.FindFirst("nameid")?.Value
                 ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
@@ -45,13 +42,13 @@ namespace BingeBox.Controllers
 
             if (existingLike != null)
             {
-                // 🟡 Ta bort like
+           
                 _context.ReviewLikes.Remove(existingLike);
                 review.LikesCount = Math.Max(0, review.LikesCount - 1);
             }
             else
             {
-                // 🟢 Lägg till like
+             
                 _context.ReviewLikes.Add(new ReviewLike
                 {
                     ReviewId = reviewId,
@@ -70,10 +67,7 @@ namespace BingeBox.Controllers
             });
         }
 
-        // =====================================================
-        // 🟣 GET: api/reviewlikes/review/{reviewId}
-        // Hämta alla användare som gillat en review
-        // =====================================================
+
         [AllowAnonymous]
         [HttpGet("review/{reviewId}")]
         public async Task<IActionResult> GetLikesForReview(int reviewId)

@@ -5,7 +5,7 @@ using BingeBox.Data;
 using BingeBox.Models;
 using BingeBox.External.Tmdb;
 using System.Security.Claims;
-using System.Text.Json;
+using BingeBox.Dto.Favorites;
 
 namespace BingeBox.Controllers
 {
@@ -23,7 +23,7 @@ namespace BingeBox.Controllers
             _tmdb = tmdb;
         }
 
-        // 🧠 Hämta userId
+
         private int GetUserId()
         {
             var claim = User.FindFirst("nameid")?.Value
@@ -33,7 +33,7 @@ namespace BingeBox.Controllers
             return int.Parse(claim);
         }
 
-        // 🟩 GET /api/favorites
+
         [HttpGet]
         public async Task<IActionResult> GetFavorites()
         {
@@ -42,22 +42,33 @@ namespace BingeBox.Controllers
             var favorites = await _context.Favorites
                 .Where(f => f.UserId == userId)
                 .OrderByDescending(f => f.CreatedAt)
+                .Select(f => new FavoriteDto
+                {
+                    Id = f.Id,
+                    UserId = f.UserId,
+                    MovieId = f.MovieId,
+                    Title = f.Title,
+                    PosterUrl = f.PosterUrl,
+                    Genre = f.Genre,
+                    Rating = f.Rating,
+                    Overview = f.Overview,
+                    CreatedAt = f.CreatedAt
+                })
                 .ToListAsync();
 
             return Ok(favorites);
         }
 
-        // 🟦 POST /api/favorites/toggle
         [HttpPost("toggle")]
-        public async Task<IActionResult> ToggleFavorite([FromBody] Favorite favorite)
+        public async Task<IActionResult> ToggleFavorite([FromBody] FavoriteToggleDto dto)
         {
+            if (dto == null)
+                return BadRequest("Ingen favoritdata mottagen.");
+
             try
             {
                 var userId = GetUserId();
-                if (favorite == null)
-                    return BadRequest("Ingen favoritdata mottagen.");
-
-                var movieId = favorite.MovieId > 0 ? favorite.MovieId : favorite.Id;
+                var movieId = dto.MovieId;
 
                 var existing = await _context.Favorites
                     .FirstOrDefaultAsync(f => f.UserId == userId && f.MovieId == movieId);
@@ -69,7 +80,7 @@ namespace BingeBox.Controllers
                     return Ok(new { favorite = false });
                 }
 
-                // 🎬 Hämta detaljer från TMDb
+   
                 string title = "Okänd titel";
                 string overview = "Ingen beskrivning tillgänglig.";
                 string genre = "Okänd genre";
@@ -108,17 +119,13 @@ namespace BingeBox.Controllers
                             genre = string.Join(", ", genreList);
                         }
                     }
-                    else
-                    {
-                        Console.WriteLine($"⚠️ Ingen TMDb-data för {movieId}");
-                    }
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"❌ TMDb-hämtning misslyckades: {ex.Message}");
                 }
 
-                // 🆕 Skapa ny favorit
+       
                 var newFav = new Favorite
                 {
                     UserId = userId,
@@ -134,7 +141,20 @@ namespace BingeBox.Controllers
                 _context.Favorites.Add(newFav);
                 await _context.SaveChangesAsync();
 
-                return Ok(new { favorite = true, item = newFav });
+                var response = new FavoriteDto
+                {
+                    Id = newFav.Id,
+                    UserId = newFav.UserId,
+                    MovieId = newFav.MovieId,
+                    Title = newFav.Title,
+                    PosterUrl = newFav.PosterUrl,
+                    Genre = newFav.Genre,
+                    Rating = newFav.Rating,
+                    Overview = newFav.Overview,
+                    CreatedAt = newFav.CreatedAt
+                };
+
+                return Ok(new { favorite = true, item = response });
             }
             catch (Exception ex)
             {
@@ -143,7 +163,6 @@ namespace BingeBox.Controllers
             }
         }
 
-        // 🟣 GET /api/favorites/user/{userId}
         [HttpGet("user/{userId}")]
         [AllowAnonymous]
         public async Task<IActionResult> GetUserFavorites(int userId)
@@ -154,12 +173,23 @@ namespace BingeBox.Controllers
             var favorites = await _context.Favorites
                 .Where(f => f.UserId == userId)
                 .OrderByDescending(f => f.CreatedAt)
+                .Select(f => new FavoriteDto
+                {
+                    Id = f.Id,
+                    UserId = f.UserId,
+                    MovieId = f.MovieId,
+                    Title = f.Title,
+                    PosterUrl = f.PosterUrl,
+                    Genre = f.Genre,
+                    Rating = f.Rating,
+                    Overview = f.Overview,
+                    CreatedAt = f.CreatedAt
+                })
                 .ToListAsync();
 
             return Ok(favorites);
         }
 
-        // 🧹 POST /api/favorites/cleanup
         [HttpPost("cleanup")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> CleanupDuplicates()
