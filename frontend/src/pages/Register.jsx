@@ -1,4 +1,3 @@
-// src/pages/Register.jsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { registerUser } from "../api";
@@ -26,7 +25,7 @@ export default function Register() {
       });
 
       setSuccess("Konto skapat! Du kan nu logga in.");
-      // Vänta 2 sekunder och skicka till login
+      
       setTimeout(() => navigate("/login"), 2000);
     } catch (err) {
       setError(err.message || "Något gick fel vid registrering.");
